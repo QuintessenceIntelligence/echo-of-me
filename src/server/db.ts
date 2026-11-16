@@ -5,8 +5,9 @@ import pg from "pg";
  *
  *  - withActor(accountId, fn): every normal request. The transaction switches to role `echo_app`
  *    and sets app.account_id, so Postgres row-level security applies to every statement.
- *  - withSystem(fn): privileged, owner-level access. Used ONLY for provisioning an account from the
- *    identity provider and for reference data. Every call site is listed in docs/adr/ADR-005.
+ *  - withAnonymous(fn): application role with no account (only to call app.provision_account).
+ *  - withSystem(fn): owner-level access for migrations and tests only. The hosted app connects as
+ *    echo_app_login (NOINHERIT), which cannot do anything without SET ROLE echo_app.
  */
 export type Queryable = Pick<pg.PoolClient, "query">;
 
@@ -45,6 +46,24 @@ export async function withActor<T>(accountId: string, fn: (db: Queryable) => Pro
   }
 }
 
+/** As the application role with no account set (RLS shows nothing). Used only to call app.provision_account. */
+export async function withAnonymous<T>(fn: (db: Queryable) => Promise<T>): Promise<T> {
+  const client = await getPool().connect();
+  try {
+    await client.query("begin");
+    await client.query("set local role echo_app");
+    const result = await fn(client);
+    await client.query("commit");
+    return result;
+  } catch (err) {
+    await client.query("rollback").catch(() => undefined);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/** Owner-level access. Used ONLY by migrations and tests; the running app never calls it (ADR-005). */
 export async function withSystem<T>(fn: (db: Queryable) => Promise<T>): Promise<T> {
   const client = await getPool().connect();
   try {

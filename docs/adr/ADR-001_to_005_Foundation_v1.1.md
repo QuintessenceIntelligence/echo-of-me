@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Version | v1.0 |
+| Version | v1.1 (amended 16 Nov 2026 ~23:55: ADR-005 least-privilege login; ADR-009 hosting status) |
 | Date | 16 November 2026 |
 | Author | Claude (routine technical decisions delegated under DR-051) |
 | Status | **ACCEPTED as working defaults for slice 1–2; reversible.** None of these spends money, signs up a vendor or fixes a hosting region. Items marked **FOUNDER** need approval before production. |
@@ -44,6 +44,13 @@
 **Privileged paths (complete list).** `withSystem()` is used only for: account provisioning from the identity provider; migrations and seed data. Two `SECURITY DEFINER` functions exist: `app.accept_invitation(token)` (re-checks token, expiry, revocation and email match) and `app.my_recipient_memberships()` (returns only legacy title and author display name).
 **Recipients.** Adding or inviting a recipient creates **no** access. Content grants arrive in slice 5 and will be added as explicit `access_grant` rows checked by both layers.
 **Evidence.** `tests/isolation.test.ts` (raw SQL as `echo_app` against another family's rows: 0 reads, 0 writes) and mutation checks showing the tests fail when a policy is weakened.
+
+## Amendment v1.1 (16 November 2026)
+**ADR-005 least-privilege runtime login (migration 0002).** The running app connects as `echo_app_login`, a `NOINHERIT` login that is a member of `echo_app`: it has **no** table access until `SET ROLE echo_app`. Account provisioning moved from owner credentials into `app.provision_account(...)` (SECURITY DEFINER, validates input, refuses duplicate emails, writes the audit record). `withSystem()` is now used **only** by migrations and tests. No password is set in migrations; it is set out of band and kept in the host's secret store. Evidence: `tests/hosting-safety.test.ts` (login without SET ROLE is denied on every table; full onboarding runs without owner credentials) and the 17-step browser walkthrough re-run with the app connected as `echo_app_login`.
+
+**ADR-004 hosted safety.** The development sign-in is refused whenever the app runs on Vercel (`VERCEL` set) or `ECHO_HOSTED` is set, regardless of `AUTH_MODE`. Hosted environments must use the real identity provider (Supabase Auth, approved for dev/test by DR-053).
+
+**ADR-009 hosting (status).** Founder decision DR-056: Vercel Hobby for **non-commercial** development and testing only, synthetic data only; move to a paid plan before any commercial use (requires spending approval, DR-054). Vercel's documentation says Hobby's Standard Protection covers preview and generated deployment URLs but may leave the production domain public, so **only preview deployments are used** until "All Deployments" protection is verified on the project, and the app keeps its own sign-in in front of everything. Database: Supabase free plan, region eu-west-1 (EU); South African residency and POPIA cross-border considerations to be documented before any real data (DR-038, ⚖).
 
 ## Planned next ADRs
 ADR-006 grounding method (RAG, DR-022) · ADR-007 model-provider abstraction and provider (DR-016, **FOUNDER**) · ADR-008 transcription (**FOUNDER** if paid) · ADR-009 hosting and region (**FOUNDER**) · ADR-010 object storage and encryption of originals (slice 2).

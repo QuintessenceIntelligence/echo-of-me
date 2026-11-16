@@ -14,9 +14,8 @@ import type { AuthContext } from "../domain/auth";
 const COOKIE = "eom_session";
 const MAX_AGE_S = 60 * 60 * 8;
 
-export function authMode(): "dev" | "unconfigured" {
-  return process.env.AUTH_MODE === "dev" ? "dev" : "unconfigured";
-}
+export { authMode } from "./auth-mode";
+import { authMode } from "./auth-mode";
 
 function secret(): string {
   const s = process.env.SESSION_SECRET;

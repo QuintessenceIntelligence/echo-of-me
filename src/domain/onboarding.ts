@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
-import { withActor, withSystem, type Queryable } from "../server/db";
+import { withActor, withAnonymous, type Queryable } from "../server/db";
 import { audit, guarded } from "./audit";
 import { requireMfa, type AuthContext } from "./auth";
 import { assertConsents, consentStatuses, currentDocuments, REQUIRED_AUTHOR_CONSENTS, type ConsentStatus } from "./consent";
@@ -45,26 +45,17 @@ const ProvisionInput = z.object({
 
 /**
  * Creates (or finds) the account for a person the identity provider has verified.
- * This is one of the few system-context operations (ADR-005): nobody "owns" an account before it exists.
+ * Runs as the unprivileged application role through one SECURITY DEFINER database function
+ * (migration 0002), so the running app never needs owner credentials (ADR-005).
  */
 export async function provisionAccount(input: z.input<typeof ProvisionInput>): Promise<{ accountId: string; created: boolean }> {
   const p = parse(ProvisionInput, input);
-  return withSystem(async (db) => {
-    const existing = await db.query("select id from account where auth_subject = $1", [p.authSubject]);
-    if (existing.rows[0]) return { accountId: existing.rows[0].id as string, created: false };
-    const emailTaken = await db.query("select 1 from account where email = $1", [p.email]);
-    if (emailTaken.rowCount) throw new PolicyError("email_in_use", "An account already uses this email address.");
-    const { rows } = await db.query(
-      "insert into account (auth_subject, email, display_name) values ($1, $2, $3) returning id",
-      [p.authSubject, p.email, p.displayName],
-    );
-    const accountId = rows[0].id as string;
-    await db.query(
-      "insert into audit_event (actor_account_id, action, target_type, target_id) values ($1, 'account.provision', 'account', $1)",
-      [accountId],
-    );
-    return { accountId, created: true };
-  });
+  const r = await withAnonymous(async (db) =>
+    (await db.query("select status, account_id from app.provision_account($1, $2, $3)", [p.authSubject, p.email, p.displayName])).rows[0],
+  );
+  if (r.status === "email_in_use") throw new PolicyError("email_in_use", "An account already uses this email address.");
+  if (r.status === "invalid") throw new ValidationError("Please check what you entered.");
+  return { accountId: r.account_id as string, created: r.status === "created" };
 }
 
 // ------------------------------------------------------------------ legacy
