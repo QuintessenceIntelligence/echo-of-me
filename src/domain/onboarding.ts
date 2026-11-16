@@ -14,7 +14,7 @@ const optionalEmail = z
   .optional()
   .transform((v) => (v ? v.toLowerCase() : null));
 
-function parse<T extends z.ZodType>(schema: T, input: unknown): z.output<T> {
+export function parse<T extends z.ZodType>(schema: T, input: unknown): z.output<T> {
   const r = schema.safeParse(input);
   if (!r.success) {
     const fields: Record<string, string> = {};
@@ -25,7 +25,7 @@ function parse<T extends z.ZodType>(schema: T, input: unknown): z.output<T> {
 }
 
 /** Application-level ownership check. RLS enforces the same rule underneath (defence in depth). */
-async function ownedLegacy(db: Queryable, ctx: AuthContext, legacyId: string) {
+export async function ownedLegacy(db: Queryable, ctx: AuthContext, legacyId: string) {
   if (!z.uuid().safeParse(legacyId).success) throw new NotFoundError("legacy");
   const { rows } = await db.query(
     "select id, owner_account_id, state from legacy where id = $1 and owner_account_id = $2",

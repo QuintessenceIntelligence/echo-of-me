@@ -178,6 +178,16 @@ export async function withdrawConsent(ctx: AuthContext, purpose: ConsentPurpose)
         });
       }
     }
+    if (purpose === "ai_processing") {
+      // "AI features then stop": automatic suggestions the author has not decided on are removed.
+      // Decisions the author already made (approved tags) are the author's own and are kept.
+      const res = await db.query(
+        `delete from memory_tag t using legacy l
+          where l.id = t.legacy_id and l.owner_account_id = $1 and t.origin = 'automatic' and t.state = 'suggested'`,
+        [ctx.accountId],
+      );
+      if (res.rowCount) await audit(db, ctx, { action: "tag.withdraw_suggestions", detail: { removed: res.rowCount } });
+    }
     return { revokedInvitations };
   });
 }

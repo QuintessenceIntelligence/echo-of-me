@@ -5,6 +5,9 @@
 import pg from "pg";
 import { describe, expect, it } from "vitest";
 import { authMode } from "../src/server/auth-mode";
+import { storageBackend } from "../src/server/storage";
+import { addMedia, createMemory, readMedia } from "../src/domain/vault";
+import { useTempBlobStore, wav } from "./fixtures";
 import { setPool } from "../src/server/db";
 import { addRecipient, createLegacy, getOverview, provisionAccount } from "../src/domain/onboarding";
 import { PolicyError, ValidationError } from "../src/domain/errors";
@@ -12,6 +15,7 @@ import { makePerson, useFreshDatabase } from "./helpers";
 import { dbUrl } from "./db-urls";
 
 const ownerPool = useFreshDatabase();
+useTempBlobStore();
 
 describe("Development sign-in cannot run when hosted", () => {
   it("is refused on Vercel or when ECHO_HOSTED is set, whatever AUTH_MODE says", () => {
@@ -19,6 +23,13 @@ describe("Development sign-in cannot run when hosted", () => {
     expect(authMode({ AUTH_MODE: "dev", VERCEL: "1" })).toBe("unconfigured");
     expect(authMode({ AUTH_MODE: "dev", ECHO_HOSTED: "1" })).toBe("unconfigured");
     expect(authMode({})).toBe("unconfigured");
+  });
+
+  it("local-disk media storage is refused on a hosted deployment", () => {
+    expect(storageBackend({})).toBe("local");
+    expect(storageBackend({ VERCEL: "1" })).toBe("unconfigured");
+    expect(storageBackend({ ECHO_HOSTED: "1", STORAGE_BACKEND: "local" })).toBe("unconfigured");
+    expect(storageBackend({ STORAGE_BACKEND: "supabase" })).toBe("unconfigured"); // not built yet: never a silent fallback
   });
 });
 
@@ -33,7 +44,8 @@ describe("Least-privilege runtime login (echo_app_login)", () => {
   it("has no table access at all without SET ROLE echo_app", async () => {
     const p = loginPool();
     try {
-      for (const t of ["account", "legacy", "recipient", "consent_event", "audit_event", "consent_document"]) {
+      for (const t of ["account", "legacy", "recipient", "consent_event", "audit_event", "consent_document",
+                       "memory_item", "memory_version", "media_asset", "transcript", "transcript_version", "memory_tag", "memory_audience", "citable_source"]) {
         await expect(p.query(`select 1 from ${t} limit 1`)).rejects.toThrow(/permission denied/);
       }
       await expect(p.query("select * from app.provision_account('x','x@example.test','x')")).rejects.toThrow(/permission denied/);
@@ -58,6 +70,14 @@ describe("Least-privilege runtime login (echo_app_login)", () => {
       const { legacyId } = await createLegacy(author, { title: "T", authorDisplayName: "Me" });
       await addRecipient(author, legacyId, { displayName: "A", relationship: "child", isMinor: false });
       expect((await getOverview(author)).legacy?.recipients).toHaveLength(1);
+      setPool(ownerPool());
+      const voice = await makePerson("lpvoice", ["terms_of_service", "privacy_notice", "audio_recording"]);
+      setPool(p);
+      const { legacyId: l2 } = await createLegacy(voice, { title: "V", authorDisplayName: "V" });
+      const { memoryId } = await createMemory(voice, l2, { kind: "memory", title: "Voice", body: "words", approve: true });
+      const audio = wav();
+      const { assetId } = await addMedia(voice, l2, memoryId, { bytes: audio, capture: "browser_recording" });
+      expect(Buffer.compare((await readMedia(voice, assetId)).bytes, audio)).toBe(0);
     } finally {
       setPool(ownerPool());
       await p.end();
