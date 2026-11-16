@@ -84,3 +84,18 @@ describe("Least-privilege runtime login (echo_app_login)", () => {
     }
   });
 });
+
+describe("Export download accepts only same-site posts", () => {
+  it("uses Sec-Fetch-Site, falls back to Origin, and never throws on 'Origin: null'", async () => {
+    const { isSameOrigin } = await import("../src/server/same-origin");
+    const h = (o: Record<string, string>) => new Headers(o);
+    expect(isSameOrigin(h({ "sec-fetch-site": "same-origin", origin: "null", host: "localhost:3000" }))).toBe(true);
+    expect(isSameOrigin(h({ "sec-fetch-site": "cross-site", origin: "http://localhost:3000", host: "localhost:3000" }))).toBe(false);
+    expect(isSameOrigin(h({ "sec-fetch-site": "same-site", host: "localhost:3000" }))).toBe(false);
+    expect(isSameOrigin(h({ origin: "http://localhost:3000", host: "localhost:3000" }))).toBe(true);
+    expect(isSameOrigin(h({ origin: "https://evil.example", host: "localhost:3000" }))).toBe(false);
+    expect(isSameOrigin(h({ origin: "null", host: "localhost:3000" }))).toBe(false);
+    expect(isSameOrigin(h({ origin: "not a url", host: "localhost:3000" }))).toBe(false);
+    expect(isSameOrigin(h({}))).toBe(false);
+  });
+});

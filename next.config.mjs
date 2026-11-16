@@ -4,12 +4,16 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "no-referrer" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
-  { key: "Permissions-Policy", value: "camera=(), geolocation=(), microphone=()" },
+  // Microphone only for this site itself (in-browser recording, slice 2).
+  { key: "Permissions-Policy", value: "camera=(), geolocation=(), microphone=(self)" },
 ];
 
 const nextConfig = {
   poweredByHeader: false,
   serverExternalPackages: ["pg"],
+  // Recordings up to 25 MB (MAX_BYTES in src/domain/media-type.ts) plus form overhead. Local development only:
+  // hosted uploads will go directly to storage with signed URLs (Vercel caps request bodies at 4.5 MB).
+  experimental: { serverActions: { bodySizeLimit: "26mb" } },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

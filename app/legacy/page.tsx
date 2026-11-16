@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { listCurrentDocuments, REQUIRED_AUTHOR_CONSENTS } from "../../src/domain/consent";
 import { getOverview, RELATIONSHIPS } from "../../src/domain/onboarding";
+import { listMemories } from "../../src/domain/vault";
 import { requireSession } from "../../src/server/session";
 import {
   giveOneConsent,
@@ -30,6 +31,8 @@ export default async function LegacyDashboard({ searchParams }: { searchParams: 
   const l = o.legacy;
   const docByPurpose = new Map(docs.map((d) => [d.purpose, d]));
   const shareConsent = o.consents.find((c) => c.purpose === "share_with_recipients")!;
+  const items = await listMemories(ctx, l.id);
+  const approvedCount = items.filter((i) => i.approval === "approved").length;
 
   return (
     <>
@@ -50,6 +53,18 @@ export default async function LegacyDashboard({ searchParams }: { searchParams: 
           </form>
         </div>
       )}
+
+      <section className="card" id="vault" aria-labelledby="vault-h">
+        <h2 id="vault-h">Memories and values</h2>
+        <p className="muted small">
+          {items.length === 0
+            ? "Nothing preserved yet. Start with one memory or one value you hold."
+            : `${items.length} item${items.length === 1 ? "" : "s"}, ${approvedCount} approved. Drafts are never used in answers.`}
+        </p>
+        <div className="actions">
+          <Link className="button" href="/legacy/memories">{items.length === 0 ? "Add your first memory" : "Open memories and values"}</Link>
+        </div>
+      </section>
 
       <section className="card" id="recipients" aria-labelledby="recipients-h">
         <h2 id="recipients-h">Recipients</h2>
@@ -195,6 +210,7 @@ export default async function LegacyDashboard({ searchParams }: { searchParams: 
 
       <div className="actions">
         <Link className="button secondary" href="/legacy/activity">Activity log</Link>
+        <Link className="button secondary" href="/legacy/export">Export everything</Link>
         {ctx.aal !== "aal2" && <Link className="button secondary" href="/mfa?next=/legacy">Confirm second factor</Link>}
       </div>
     </>

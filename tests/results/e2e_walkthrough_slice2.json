@@ -1,0 +1,131 @@
+{
+  "base_url": "http://localhost:3000",
+  "steps": [
+    {
+      "step": "Author set up with all consents and one adult recipient",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Draft saved and clearly marked as not used in answers",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Written words labelled 'In your own words' (P2)",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "In-browser recording saved and playable on the page",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Recording served byte-identical to its stored fingerprint (AC-03)",
+      "passed": true,
+      "note": "29074 bytes, audio/webm"
+    },
+    {
+      "step": "Uploaded WAV returned byte-identical (AC-03)",
+      "passed": true,
+      "note": "2 recordings"
+    },
+    {
+      "step": "A file whose bytes are not audio or a photo is refused, whatever its name",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Saved transcript is marked unapproved, never used in answers (AC-04)",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Approved transcript is labelled 'Transcript you approved' (P3)",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Automatic theme suggestions shown as unapproved",
+      "passed": true,
+      "note": "2 suggestions: ['Theme: family', 'Theme: resilience']"
+    },
+    {
+      "step": "Accept, reject and own tags recorded",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Intended recipient saved, with a clear 'nothing shared' message",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Sensitivity flag saved",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Item approved",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Editing creates version 2 and returns the item to draft (AC-05 rule)",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "List shows two approved items",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Export asks for the second factor first",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Export ZIP is valid; every original matches its fingerprint; recording and WAV byte-identical (AC-03, AC-12 start)",
+      "passed": true,
+      "note": "echo-of-me-export-2026-11-16.zip, 5 entries"
+    },
+    {
+      "step": "Export holds both versions, transcript provenance, tag decisions and the intended recipient",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Activity log records capture, approval, transcript, tags and export without content",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Another signed-in person gets 'not found' for the recording and the memory page",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Signed-out request for a recording is refused",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Deleted item disappears with its recordings",
+      "passed": true,
+      "note": ""
+    }
+  ],
+  "accessibility": {
+    "memories_empty": [],
+    "memory_detail_with_suggestions": [],
+    "memories_list": [],
+    "export": []
+  },
+  "summary": {
+    "steps": 23,
+    "failed": 0,
+    "axe_violation_types": 0
+  }
+}

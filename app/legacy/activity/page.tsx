@@ -15,6 +15,27 @@ const ACTION_LABEL: Record<string, string> = {
   "invitation.create": "Invitation created",
   "invitation.revoke": "Invitation cancelled",
   "invitation.accept": "Invitation accepted",
+  "memory.create": "Memory or value added",
+  "memory.edit": "New version saved",
+  "memory.approve": "Approved",
+  "memory.unapprove": "Returned to draft",
+  "memory.sensitivity": "Sensitivity changed",
+  "memory.audience": "Intended recipients changed",
+  "memory.delete": "Item deleted",
+  "media.add": "Recording or photo added",
+  "media.delete": "Recording or photo deleted",
+  "media.integrity_failure": "Recording failed its integrity check",
+  "transcript.save": "Transcript saved",
+  "transcript.approve": "Transcript approved",
+  "transcript.unapprove": "Transcript approval withdrawn",
+  "transcript.machine": "Machine transcript",
+  "tag.add": "Tag added",
+  "tag.remove": "Tag removed",
+  "tag.suggest": "Themes suggested automatically",
+  "tag.approve": "Suggestion accepted",
+  "tag.reject": "Suggestion rejected",
+  "tag.withdraw_suggestions": "Pending suggestions removed",
+  "legacy.export": "Export downloaded",
 };
 
 const REASON_LABEL: Record<string, string> = {
@@ -31,6 +52,13 @@ const REASON_LABEL: Record<string, string> = {
   revoked: "link was cancelled",
   own_legacy: "authors cannot accept their own invitation",
   superseded: "replaced by a newer link",
+  edited: "because the words changed",
+  media_added: "because a recording or photo was added",
+  media_removed: "because a recording or photo was removed",
+  author_withdrew: "by you",
+  stale_version: "changed in another window",
+  legacy_locked: "legacy not open for changes",
+  storage_full: "storage limit reached",
 };
 
 /** The author's transparency log: who did what, when. Identifiers only, never content. */
