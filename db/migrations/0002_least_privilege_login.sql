@@ -29,7 +29,7 @@ begin
   if v_id is not null then
     return query select 'existing'::text, v_id; return;
   end if;
-  if exists (select 1 from account a where a.email = lower(p_email)::citext) then
+  if exists (select 1 from account a where a.email = lower(p_email)) then
     return query select 'email_in_use'::text, null::uuid; return;
   end if;
   insert into account (auth_subject, email, display_name)

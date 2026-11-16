@@ -9,8 +9,7 @@
 --    by grants and by triggers).
 --  * Minors exist only as records: they can never hold an account link or an invitation (DR-026, G2 default).
 
-create extension if not exists pgcrypto;
-create extension if not exists citext;
+-- gen_random_uuid() and sha256() are built into PostgreSQL 13+; no extensions needed.
 
 create schema if not exists app;
 
@@ -48,7 +47,7 @@ create type audit_outcome as enum ('success', 'denied', 'error');
 create table account (
   id            uuid primary key default gen_random_uuid(),
   auth_subject  text not null unique,           -- subject from the identity provider (ADR-004)
-  email         citext not null unique,
+  email         text not null unique check (email = lower(email) and length(email) <= 254),  -- stored lower-case
   display_name  text not null check (length(btrim(display_name)) between 1 and 120),
   created_at    timestamptz not null default now()
 );
@@ -71,7 +70,7 @@ create table recipient (
   display_name       text not null check (length(btrim(display_name)) between 1 and 120),
   relationship       recipient_relationship not null,
   is_minor           boolean not null,
-  email              citext,
+  email              text check (email is null or (email = lower(email) and length(email) <= 254)),
   invitation_status  invitation_status not null default 'not_invited',
   account_id         uuid references account(id),
   created_at         timestamptz not null default now(),
@@ -104,7 +103,7 @@ create table trusted_contact (
   id            uuid primary key default gen_random_uuid(),
   legacy_id     uuid not null references legacy(id) on delete cascade,
   display_name  text not null check (length(btrim(display_name)) between 1 and 120),
-  email         citext,
+  email         text check (email is null or (email = lower(email) and length(email) <= 254)),
   relationship  text check (relationship is null or length(relationship) <= 80),
   created_at    timestamptz not null default now()
   -- Record only: a trusted contact has no login and no powers in MVP-1 (DR-042).
@@ -245,7 +244,7 @@ language plpgsql security definer set search_path = public, app, pg_temp as $$
 -- Returns a status instead of raising, so that the audit record of a refused attempt is kept.
 declare
   v_me     uuid := app.current_account_id();
-  v_email  citext;
+  v_email  text;
   v_inv    invitation%rowtype;
   v_rec    recipient%rowtype;
   v_reason text;
