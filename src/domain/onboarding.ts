@@ -19,7 +19,7 @@ function parse<T extends z.ZodType>(schema: T, input: unknown): z.output<T> {
   if (!r.success) {
     const fields: Record<string, string> = {};
     for (const issue of r.error.issues) fields[issue.path.join(".") || "_"] = issue.message;
-    throw new ValidationError("Please check the highlighted fields.", fields);
+    throw new ValidationError("Please check what you entered.", fields);
   }
   return r.data;
 }

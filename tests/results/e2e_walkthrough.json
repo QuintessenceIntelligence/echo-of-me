@@ -1,0 +1,105 @@
+{
+  "base_url": "http://localhost:3000",
+  "steps": [
+    {
+      "step": "New author is sent to the consent step first",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Required consents cannot be skipped (browser blocks submit)",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Legacy created after consents",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Three recipients added (AC-01)",
+      "passed": true,
+      "note": "rows=3"
+    },
+    {
+      "step": "Each recipient shows 'Nothing yet' shared (AC-02)",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Child with an email address is refused",
+      "passed": true,
+      "note": "Please check what you entered. Children are kept as records only, so please leave the email empty."
+    },
+    {
+      "step": "Trusted contact saved (record only)",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Invitation refused without second factor",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Invitation link created after second factor",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Legacy becomes Active",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "A different signed-in person cannot use the link",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Recipient joins and sees nothing shared (AC-02)",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Recipient cannot open the author's legacy page",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Invitation link cannot be reused",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Author sees Asha as Joined",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Refused attempt by someone else is in the author's log",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Activity log shows no recipient emails",
+      "passed": true,
+      "note": ""
+    }
+  ],
+  "accessibility": {
+    "landing": [],
+    "consents": [],
+    "create_legacy": [],
+    "legacy_dashboard": [],
+    "invite_signed_out": [],
+    "invite_signed_in": [],
+    "recipient_home": [],
+    "activity_log": []
+  },
+  "summary": {
+    "steps": 17,
+    "failed": 0,
+    "axe_violation_types": 0
+  }
+}

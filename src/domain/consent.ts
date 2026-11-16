@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Queryable } from "../server/db";
+import { withActor, type Queryable } from "../server/db";
 import { audit, guarded } from "./audit";
 import type { AuthContext } from "./auth";
 import { ConsentRequiredError, NotFoundError, ValidationError } from "./errors";
@@ -180,4 +180,9 @@ export async function withdrawConsent(ctx: AuthContext, purpose: ConsentPurpose)
     }
     return { revokedInvitations };
   });
+}
+
+/** For display: the current text of each consent, so the person reads exactly what they agree to. */
+export async function listCurrentDocuments(ctx: AuthContext): Promise<ConsentDocument[]> {
+  return withActor(ctx.accountId, async (db) => [...(await currentDocuments(db)).values()]);
 }
