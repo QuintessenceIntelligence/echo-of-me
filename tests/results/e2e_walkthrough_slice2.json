@@ -89,7 +89,7 @@
     {
       "step": "Export ZIP is valid; every original matches its fingerprint; recording and WAV byte-identical (AC-03, AC-12 start)",
       "passed": true,
-      "note": "echo-of-me-export-2026-11-16.zip, 5 entries"
+      "note": "echo-of-me-export-2026-11-17.zip, 5 entries"
     },
     {
       "step": "Export holds both versions, transcript provenance, tag decisions and the intended recipient",

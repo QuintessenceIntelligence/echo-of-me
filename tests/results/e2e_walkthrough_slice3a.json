@@ -1,0 +1,56 @@
+{
+  "base_url": "http://localhost:3000",
+  "steps": [
+    {
+      "step": "Two approved items and one draft created",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Direct question answered 'In their own words' with the exact approved text and a citation",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Out-of-corpus question says 'not recorded', invents nothing and offers what was recorded",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "A draft is never used, even when asked for by name",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Identity question answered plainly as an AI interface",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Crisis question gets human-help numbers and no 'Gran' voice",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "History lists practice questions; the crisis question text is not stored",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Activity log records practice answers without the question text",
+      "passed": true,
+      "note": ""
+    }
+  ],
+  "accessibility": {
+    "rehearse_empty": [],
+    "rehearse_answer_e1": [],
+    "rehearse_answer_e3": [],
+    "rehearse_history": []
+  },
+  "summary": {
+    "steps": 8,
+    "failed": 0,
+    "axe_violation_types": 0
+  }
+}

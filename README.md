@@ -2,7 +2,7 @@
 
 *Because your love deserves a voice beyond time.* · By Quintessence Intelligence
 
-**Status: pre-release, local development only.** Vertical slices 1 (consent and onboarding) and 2 (memory capture and provenance) are built and tested. Nothing is deployed. Do not store real personal material.
+**Status: pre-release, local development only.** Vertical slices 1 (consent and onboarding), 2 (memory capture and provenance) and 3a (grounded answers without an AI model) are built and tested. Nothing is deployed. Do not store real personal material.
 
 Product source of truth: the `canonical/` documents in the Echo of Me Claude Project (00 README, R2 decisions, 01D MVP boundary). Architecture decisions: `docs/adr/`. Latest test evidence: `tests/results/`.
 
@@ -11,8 +11,8 @@ Product source of truth: the `canonical/` documents in the Echo of Me Claude Pro
 |---|---|---|
 | 1 | Author consent and onboarding | **Built, tested** (`tests/results/Slice_1_Test_Results_v1.0.md`) |
 | 2 | Memory capture and provenance | **Built, tested** (`tests/results/Slice_2_Test_Results_v1.0.md`, ADR-006) |
-| 3 | Secure retrieval (AI, needs provider decision ADR-007) | Next; must read only the `citable_source` view |
-| 4 | Author preview (rehearsal) | Not started |
+| 3 | Secure retrieval | **3a built, tested**: provider-free grounded answers for author rehearsal (ADR-007a, `tests/results/Slice_3a_Test_Results_v1.0.md`). AI composer awaits ADR-007 |
+| 4 | Author preview (rehearsal) | Practice page live; pin/correct/suppress next |
 | 5 | Recipient roles and release governance | Not started |
 | 6 | Pilot telemetry | Not started |
 

@@ -106,3 +106,16 @@ input[type=file] { color: var(--text); margin: 4px 0; }
 .inline-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; width: 100%; }
 .inline-form > div { flex: 1 1 160px; }
 .inline-form > div:last-child { flex: 0 0 auto; }
+
+/* Slice 3a: rehearsal */
+.disclosure { border-left: 3px solid var(--violet); padding: 4px 10px; color: #ddd2ff; margin: 0 0 12px; }
+.answer .lead { font-size: 1.05rem; }
+.ev { display: inline-block; border-radius: 6px; padding: 1px 8px; font-size: .8rem; font-weight: 600; border: 1px solid var(--navy-700); vertical-align: middle; }
+.ev.e1 { border-color: var(--teal-dim); color: var(--ok); }
+.ev.e2 { border-color: #8a6a2a; color: #f3d39a; }
+.ev.e3 { color: var(--text-dim); }
+.ev.safety { border-color: #7a3b3b; color: #ffd9d9; }
+.source-card { border-top: 1px solid var(--navy-700); padding: 12px 0; }
+.source-card blockquote { margin: 0 0 6px; padding: 10px 14px; background: var(--navy-950); border-left: 3px solid var(--teal-dim); border-radius: 0 10px 10px 0; white-space: pre-wrap; }
+.source-card audio { width: 100%; }
+.resources li { margin: 4px 0; }

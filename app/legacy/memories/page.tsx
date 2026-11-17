@@ -21,9 +21,10 @@ export default async function Memories({ searchParams }: { searchParams: Promise
       <h1>Memories and values</h1>
       <p className="muted">
         Write or record what you want to preserve. Everything starts as a draft. Only items you approve can ever be
-        used to answer questions, and the AI part of Echo of Me is not switched on yet.
+        used to answer questions.
       </p>
       <Notices searchParams={sp} />
+      {approved > 0 && <p className="small"><Link href="/legacy/rehearse">Practise questions</Link> to see how your approved items would be used.</p>}
 
       <section className="card" aria-labelledby="list-h">
         <h2 id="list-h">Your items <span className="muted small">({items.length} · {approved} approved)</span></h2>

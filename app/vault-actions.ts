@@ -186,3 +186,32 @@ export async function submitDecideTag(fd: FormData) {
   await run(fd, decision === "approved" ? "Suggestion accepted." : "Suggestion rejected.", (ctx) =>
     decideTag(ctx, str(fd, "legacyId"), str(fd, "tagId"), decision), "#tags");
 }
+
+// ---------------------------------------------------------------- rehearsal (slice 3a)
+
+export type RehearseState = { question?: string; answer?: import("../src/domain/rehearsal").Answer; error?: string };
+
+export async function rehearseAction(_prev: RehearseState, fd: FormData): Promise<RehearseState> {
+  const ctx = await readSession();
+  if (!ctx) return { error: "Please sign in again." };
+  const question = str(fd, "question");
+  try {
+    const { rehearse } = await import("../src/domain/rehearsal");
+    const answer = await rehearse(ctx, str(fd, "legacyId"), question);
+    revalidatePath("/legacy/rehearse");
+    return { question, answer };
+  } catch (err) {
+    return { question, error: messageFor(err) };
+  }
+}
+
+export async function submitClearRehearsal(fd: FormData) {
+  const ctx = await requireSession("/legacy/rehearse");
+  try {
+    const { clearRehearsalHistory } = await import("../src/domain/rehearsal");
+    await clearRehearsalHistory(ctx, str(fd, "legacyId"));
+  } catch (err) {
+    go("/legacy/rehearse", "error", messageFor(err));
+  }
+  go("/legacy/rehearse", "ok", "Your practice questions were cleared.");
+}

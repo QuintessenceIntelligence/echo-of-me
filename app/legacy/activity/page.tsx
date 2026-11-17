@@ -36,6 +36,8 @@ const ACTION_LABEL: Record<string, string> = {
   "tag.reject": "Suggestion rejected",
   "tag.withdraw_suggestions": "Pending suggestions removed",
   "legacy.export": "Export downloaded",
+  "answer.rehearse": "Practice question answered",
+  "rehearsal.clear": "Practice history cleared",
 };
 
 const REASON_LABEL: Record<string, string> = {
