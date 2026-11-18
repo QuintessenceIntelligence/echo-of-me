@@ -1,0 +1,101 @@
+{
+  "base_url": "http://localhost:3000",
+  "steps": [
+    {
+      "step": "Author set up: Asha invited, legacy active, two approved items (one with a recording) and one draft",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Recipient joins and sees nothing shared yet (AC-02)",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Author shares one item with Asha",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "A draft cannot be shared",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Recipient sees only the shared item, its words and its recording; no draft or unshared item",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Recipient can play the shared original",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Recipient question answered in Dad's own words, with the AI disclosure",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "An approved item that was not shared is never used",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Identity question answered plainly",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Recipient reports an answer",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Author is told about the report",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Report shows reason, note, question (included by choice) and the source item",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Author's log shows sharing, views, plays and answers, without the recipient's questions",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "An edited (draft) item disappears for the recipient at once",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Re-approved item is visible again with the new words",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "After 'Stop sharing everything', the recipient sees nothing",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "The recording can no longer be fetched",
+      "passed": true,
+      "note": ""
+    }
+  ],
+  "accessibility": {
+    "memory_share_panel": [],
+    "shared_page": [],
+    "shared_answer": [],
+    "reports": []
+  },
+  "summary": {
+    "steps": 17,
+    "failed": 0,
+    "axe_violation_types": 0
+  }
+}

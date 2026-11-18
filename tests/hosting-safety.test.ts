@@ -45,7 +45,8 @@ describe("Least-privilege runtime login (echo_app_login)", () => {
     const p = loginPool();
     try {
       for (const t of ["account", "legacy", "recipient", "consent_event", "audit_event", "consent_document",
-                       "memory_item", "memory_version", "media_asset", "transcript", "transcript_version", "memory_tag", "memory_audience", "citable_source"]) {
+                       "memory_item", "memory_version", "media_asset", "transcript", "transcript_version", "memory_tag", "memory_audience", "citable_source",
+                       "rehearsal_turn", "answer_rule", "share_grant", "recipient_turn", "answer_report"]) {
         await expect(p.query(`select 1 from ${t} limit 1`)).rejects.toThrow(/permission denied/);
       }
       await expect(p.query("select * from app.provision_account('x','x@example.test','x')")).rejects.toThrow(/permission denied/);

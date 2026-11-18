@@ -42,6 +42,15 @@ const ACTION_LABEL: Record<string, string> = {
   "answer.suppress": "Item hidden for a question",
   "answer.correct": "Answer written in your own words",
   "answer.rule_remove": "Answer rule removed",
+  "share.grant": "Item shared with a recipient",
+  "share.revoke": "Stopped sharing an item",
+  "share.revoke_all": "Stopped sharing everything with a recipient",
+  "share.set": "Sharing changed",
+  "shared.view": "A recipient opened what you shared",
+  "shared.media_play": "A recipient played a recording you shared",
+  "answer.recipient": "A recipient asked a question (answered from your shared items)",
+  "answer.report": "A recipient reported an answer",
+  "answer.report_resolve": "Report marked as dealt with",
 };
 
 const REASON_LABEL: Record<string, string> = {
@@ -65,6 +74,8 @@ const REASON_LABEL: Record<string, string> = {
   stale_version: "changed in another window",
   legacy_locked: "legacy not open for changes",
   storage_full: "storage limit reached",
+  answers_off: "answers are switched off",
+  legacy_not_active: "legacy not active",
 };
 
 /** The author's transparency log: who did what, when. Identifiers only, never content. */

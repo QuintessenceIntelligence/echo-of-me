@@ -25,7 +25,14 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ o
         <div className="card" key={m.legacyId}>
           <h2>{m.legacyTitle}</h2>
           <p className="muted small">From {m.authorDisplayName} · joined {formatDateTime(m.acceptedAt)}</p>
-          <p>Nothing has been shared with you yet. You will see items here only when {m.authorDisplayName} chooses to share them with you.</p>
+          {m.sharedCount === 0 ? (
+            <p>Nothing has been shared with you yet. You will see items here only when {m.authorDisplayName} chooses to share them with you.</p>
+          ) : (
+            <>
+              <p>{m.authorDisplayName} has shared {m.sharedCount} item{m.sharedCount === 1 ? "" : "s"} with you.</p>
+              <div className="actions"><Link className="button" href={`/shared/${m.legacyId}`}>Open what was shared</Link></div>
+            </>
+          )}
         </div>
       ))}
       <div className="card">

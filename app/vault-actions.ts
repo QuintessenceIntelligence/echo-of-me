@@ -248,3 +248,73 @@ export async function submitClearRehearsal(fd: FormData) {
   }
   go("/legacy/rehearse", "ok", "Your practice questions were cleared.");
 }
+
+// ---------------------------------------------------------------- sharing (slice 5)
+
+export async function submitShares(fd: FormData) {
+  const ctx = await requireSession(itemPath(fd, "#share"));
+  const { setItemShares } = await import("../src/domain/sharing");
+  let res = { added: 0, removed: 0 };
+  try {
+    res = await setItemShares(ctx, str(fd, "legacyId"), str(fd, "memoryId"),
+      fd.getAll("recipientId").filter((v): v is string => typeof v === "string"),
+      { confirmSensitive: fd.get("confirmSensitive") === "on" });
+  } catch (err) {
+    if (err instanceof DomainError && err.code === "mfa_required") redirect(`/mfa?next=${encodeURIComponent(itemPath(fd, "#share"))}`);
+    go(itemPath(fd, "#share"), "error", messageFor(err));
+  }
+  revalidatePath("/legacy/memories");
+  go(itemPath(fd, "#share"), "ok", res.added || res.removed ? `Sharing updated: ${res.added} added, ${res.removed} stopped.` : "No changes to sharing.");
+}
+
+export async function submitStopSharingWith(fd: FormData) {
+  const ctx = await requireSession("/legacy");
+  const { stopSharingWith } = await import("../src/domain/sharing");
+  let n = 0;
+  try {
+    n = (await stopSharingWith(ctx, str(fd, "legacyId"), str(fd, "recipientId"))).removed;
+  } catch (err) {
+    go("/legacy#recipients", "error", messageFor(err));
+  }
+  go("/legacy#recipients", "ok", `Stopped sharing ${n} item${n === 1 ? "" : "s"} with this person.`);
+}
+
+export async function submitResolveReport(fd: FormData) {
+  const ctx = await requireSession("/legacy/reports");
+  const { resolveReport } = await import("../src/domain/sharing");
+  try {
+    await resolveReport(ctx, str(fd, "legacyId"), str(fd, "reportId"));
+  } catch (err) {
+    go("/legacy/reports", "error", messageFor(err));
+  }
+  go("/legacy/reports", "ok", "Marked as dealt with.");
+}
+
+export type RecipientAskState = { question?: string; answer?: import("../src/domain/rehearsal").Answer; error?: string; notice?: string; reported?: string[] };
+
+/** Recipient page: ask, or report the last answer. */
+export async function recipientAction(prev: RecipientAskState, fd: FormData): Promise<RecipientAskState> {
+  const ctx = await readSession();
+  if (!ctx) return { error: "Please sign in again." };
+  const legacyId = str(fd, "legacyId");
+  if (str(fd, "op") === "report") {
+    const { reportAnswer } = await import("../src/domain/sharing");
+    try {
+      await reportAnswer(ctx, legacyId, str(fd, "turnId"), {
+        reason: str(fd, "reason") as never,
+        note: str(fd, "note"),
+        includeQuestion: fd.get("includeQuestion") === "on",
+      });
+      return { ...prev, error: undefined, notice: "Thank you. Your report was sent.", reported: [...(prev.reported ?? []), str(fd, "turnId")] };
+    } catch (err) {
+      return { ...prev, notice: undefined, error: messageFor(err) };
+    }
+  }
+  const question = str(fd, "question");
+  try {
+    const { recipientAsk } = await import("../src/domain/rehearsal");
+    return { question, answer: await recipientAsk(ctx, legacyId, question), reported: prev.reported };
+  } catch (err) {
+    return { question, error: messageFor(err), reported: prev.reported };
+  }
+}

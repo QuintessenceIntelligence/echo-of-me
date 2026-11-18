@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getOverview } from "../../../../src/domain/onboarding";
 import { getMemory } from "../../../../src/domain/vault";
+import { getItemSharing } from "../../../../src/domain/sharing";
 import { DomainError } from "../../../../src/domain/errors";
 import { requireSession } from "../../../../src/server/session";
 import { formatDateTime, Notices } from "../../../components";
@@ -15,6 +16,7 @@ import {
   submitEditMemory,
   submitRemoveTag,
   submitSensitivity,
+  submitShares,
   submitSuggestTags,
   submitTranscript,
   submitTranscriptApproval,
@@ -44,6 +46,12 @@ export default async function MemoryPage({
     throw err;
   }
   const consent = (p: string) => o.consents.find((c) => c.purpose === p)?.state === "granted";
+  const sharing = await getItemSharing(ctx, o.legacy.id, m.id);
+  const ELIGIBILITY_NOTE: Record<string, string> = {
+    minor: "child, record only",
+    not_invited: "invite them first",
+    revoked: "invitation cancelled",
+  };
   const hidden = (
     <>
       <input type="hidden" name="legacyId" value={m.legacyId} />
@@ -288,6 +296,41 @@ export default async function MemoryPage({
           <label className="check"><input type="checkbox" name="sensitive" defaultChecked={m.sensitivity === "sensitive"} /> This is sensitive (handle with extra care)</label>
           <div className="actions"><button type="submit" className="secondary">Save sensitivity</button></div>
         </form>
+      </section>
+
+      <section className="card" id="share" aria-labelledby="share-h">
+        <h2 id="share-h">Share</h2>
+        {!consent("share_with_recipients") ? (
+          <p className="notice info small">Sharing needs the “Inviting and sharing with recipients” consent under <Link href="/legacy#consents">Your consents</Link>.</p>
+        ) : o.legacy.state !== "active" ? (
+          <p className="notice info small">Finish setting up your legacy before sharing.</p>
+        ) : !sharing.approved && !sharing.targets.some((t) => t.shared) ? (
+          <p className="notice info small">Approve this item before sharing it. Only approved items can be shared.</p>
+        ) : sharing.targets.length === 0 ? (
+          <p className="muted small">Add and invite recipients on your <Link href="/legacy#recipients">legacy page</Link> first.</p>
+        ) : (
+          <form action={submitShares}>
+            {hidden}
+            {!sharing.approved && <p className="notice info small">This item is a draft, so nobody can see it right now. It becomes visible again to the people below when you approve it.</p>}
+            <fieldset className="plain">
+              <legend>Who can see this item and ask about it</legend>
+              {sharing.targets.map((t) => (
+                <label className="check" key={t.recipientId}>
+                  <input type="checkbox" name="recipientId" value={t.recipientId} defaultChecked={t.shared} disabled={t.eligibility !== "ok" && !t.shared} />{" "}
+                  {t.displayName}
+                  {t.eligibility !== "ok" && <span className="muted small"> ({ELIGIBILITY_NOTE[t.eligibility]})</span>}
+                  {t.eligibility === "ok" && t.invitationStatus === "invited" && <span className="muted small"> (sees it once they accept the invitation)</span>}
+                  {t.shared && t.grantedAt && <span className="muted small"> · shared {formatDateTime(t.grantedAt)}</span>}
+                </label>
+              ))}
+            </fieldset>
+            {sharing.sensitive && (
+              <label className="check"><input type="checkbox" name="confirmSensitive" /> This item is marked sensitive. I still want to share it with the people ticked above.</label>
+            )}
+            <p className="muted small">They will see your current approved words, recordings and approved transcripts, never drafts or earlier versions. If you change the item, they stop seeing it until you approve it again. Sharing needs your second sign-in step.</p>
+            <div className="actions"><button type="submit">Save sharing</button></div>
+          </form>
+        )}
       </section>
 
       <section className="card" id="delete" aria-labelledby="delete-h">

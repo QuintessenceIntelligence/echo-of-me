@@ -310,7 +310,7 @@ export interface AuthorOverview {
     recipients: RecipientView[];
     trustedContacts: { id: string; displayName: string; email: string | null; relationship: string | null }[];
   };
-  memberships: { legacyId: string; legacyTitle: string; authorDisplayName: string; acceptedAt: string }[];
+  memberships: { legacyId: string; legacyTitle: string; authorDisplayName: string; acceptedAt: string; sharedCount: number }[];
 }
 
 export async function getOverview(ctx: AuthContext): Promise<AuthorOverview> {
@@ -328,7 +328,9 @@ export async function getOverview(ctx: AuthContext): Promise<AuthorOverview> {
     if (l) {
       const recipients = (
         await db.query(
-          "select id, display_name, relationship, is_minor, email, invitation_status from recipient where legacy_id = $1 order by created_at",
+          `select r.id, r.display_name, r.relationship, r.is_minor, r.email, r.invitation_status,
+                  (select count(*)::int from share_grant g where g.recipient_id = r.id) as shared
+             from recipient r where r.legacy_id = $1 order by r.created_at`,
           [l.id],
         )
       ).rows.map((r) => ({
@@ -338,18 +340,22 @@ export async function getOverview(ctx: AuthContext): Promise<AuthorOverview> {
         isMinor: r.is_minor,
         email: r.email,
         invitationStatus: r.invitation_status,
-        sharedItemCount: 0,
+        sharedItemCount: r.shared as number,
       }));
       const trustedContacts = (
         await db.query("select id, display_name, email, relationship from trusted_contact where legacy_id = $1 order by created_at", [l.id])
       ).rows.map((t) => ({ id: t.id, displayName: t.display_name, email: t.email, relationship: t.relationship }));
       legacy = { id: l.id, title: l.title, authorDisplayName: l.author_display_name, about: l.about, state: l.state, recipients, trustedContacts };
     }
-    const memberships = (await db.query("select * from app.my_recipient_memberships()")).rows.map((m) => ({
+    const memberships = (await db.query(
+      `select m.*, (select count(*)::int from memory_item i where i.legacy_id = m.legacy_id and app.shared_with_me(i.id)) as shared
+         from app.my_recipient_memberships() m`,
+    )).rows.map((m) => ({
       legacyId: m.legacy_id,
       legacyTitle: m.legacy_title,
       authorDisplayName: m.author_display_name,
       acceptedAt: new Date(m.accepted_at).toISOString(),
+      sharedCount: m.shared as number,
     }));
     return { account: { id: acc.id, email: acc.email, displayName: acc.display_name }, consents, legacy, memberships };
   });

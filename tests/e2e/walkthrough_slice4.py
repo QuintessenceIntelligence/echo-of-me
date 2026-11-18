@@ -79,7 +79,7 @@ with sync_playwright() as p:
     # 1. Answer it yourself turns a gap into the author's own words.
     t = ask("Should I study medicine or law?")
     step("Unknown question answered 'Not recorded'", "Not recorded · E3" in t)
-    a.get_by_text("Answer it yourself").click()
+    a.get_by_text("Answer it yourself", exact=True).click()
     a.get_by_label("Your answer").fill("Choose the one that lets you help people every day. I will be proud either way.")
     a.get_by_role("button", name="Save, approve and pin").click()
     t = wait_notice("Saved in your own words, approved, and pinned")

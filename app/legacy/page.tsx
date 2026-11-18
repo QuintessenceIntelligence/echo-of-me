@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { listCurrentDocuments, REQUIRED_AUTHOR_CONSENTS } from "../../src/domain/consent";
 import { getOverview, RELATIONSHIPS } from "../../src/domain/onboarding";
 import { listMemories } from "../../src/domain/vault";
+import { listReports } from "../../src/domain/sharing";
+import { submitStopSharingWith } from "../vault-actions";
 import { requireSession } from "../../src/server/session";
 import {
   giveOneConsent,
@@ -33,6 +35,7 @@ export default async function LegacyDashboard({ searchParams }: { searchParams: 
   const shareConsent = o.consents.find((c) => c.purpose === "share_with_recipients")!;
   const items = await listMemories(ctx, l.id);
   const approvedCount = items.filter((i) => i.approval === "approved").length;
+  const openReports = (await listReports(ctx, l.id)).filter((r) => !r.resolvedAt).length;
 
   return (
     <>
@@ -67,6 +70,12 @@ export default async function LegacyDashboard({ searchParams }: { searchParams: 
         </div>
       </section>
 
+      {openReports > 0 && (
+        <p className="notice info">
+          {openReports} answer{openReports === 1 ? " was" : "s were"} reported by your recipients. <Link href="/legacy/reports">Review reports</Link>
+        </p>
+      )}
+
       <section className="card" id="recipients" aria-labelledby="recipients-h">
         <h2 id="recipients-h">Recipients</h2>
         <p className="muted small">
@@ -87,7 +96,7 @@ export default async function LegacyDashboard({ searchParams }: { searchParams: 
                   </td>
                   <td>{RELATIONSHIP_LABELS[r.relationship]}{r.isMinor && <div><span className="pill">Child · record only</span></div>}</td>
                   <td>{r.isMinor ? "—" : STATUS_LABEL[r.invitationStatus]}</td>
-                  <td>{r.sharedItemCount === 0 ? "Nothing yet" : `${r.sharedItemCount} items`}</td>
+                  <td>{r.sharedItemCount === 0 ? "Nothing yet" : `${r.sharedItemCount} item${r.sharedItemCount === 1 ? "" : "s"}`}</td>
                   <td>
                     {!r.isMinor && r.email && r.invitationStatus !== "accepted" && (
                       <InviteButton legacyId={l.id} recipientId={r.id} label={r.invitationStatus === "invited" ? "New link" : "Invite"} />
@@ -97,6 +106,13 @@ export default async function LegacyDashboard({ searchParams }: { searchParams: 
                         <input type="hidden" name="legacyId" value={l.id} />
                         <input type="hidden" name="recipientId" value={r.id} />
                         <button className="link small" type="submit">Cancel invitation</button>
+                      </form>
+                    )}
+                    {r.sharedItemCount > 0 && (
+                      <form action={submitStopSharingWith}>
+                        <input type="hidden" name="legacyId" value={l.id} />
+                        <input type="hidden" name="recipientId" value={r.id} />
+                        <button className="link small" type="submit" aria-label={`Stop sharing everything with ${r.displayName}`}>Stop sharing everything</button>
                       </form>
                     )}
                     <form action={submitRemoveRecipient}>
