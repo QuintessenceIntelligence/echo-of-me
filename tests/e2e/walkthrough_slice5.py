@@ -165,6 +165,8 @@ with sync_playwright() as p:
     # Author sees the report and the activity.
     a.goto(BASE + "/legacy")
     step("Author is told about the report", a.get_by_text("reported by your recipients").is_visible())
+    step("Dashboard shows 'Your progress' from the author's own records", "Your progress" in a.locator("main").inner_text() and "1 item shared" in a.locator("#progress").inner_text())
+    axe(a, "legacy_dashboard_with_progress")
     a.get_by_role("link", name="Review reports").click()
     a.wait_for_url("**/legacy/reports")
     expect(a.get_by_role("heading", name="Reported answers")).to_be_visible()

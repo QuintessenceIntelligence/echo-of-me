@@ -57,6 +57,11 @@
       "note": ""
     },
     {
+      "step": "Dashboard shows 'Your progress' from the author's own records",
+      "passed": true,
+      "note": ""
+    },
+    {
       "step": "Report shows reason, note, question (included by choice) and the source item",
       "passed": true,
       "note": ""
@@ -91,10 +96,11 @@
     "memory_share_panel": [],
     "shared_page": [],
     "shared_answer": [],
+    "legacy_dashboard_with_progress": [],
     "reports": []
   },
   "summary": {
-    "steps": 17,
+    "steps": 18,
     "failed": 0,
     "axe_violation_types": 0
   }

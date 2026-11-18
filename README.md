@@ -16,7 +16,7 @@ Product source of truth: the `canonical/` documents in the Echo of Me Claude Pro
 | 5 | Recipient roles and release governance | **Built, tested** for living-author sharing (ADR-009, `tests/results/Slice_5_Test_Results_v1.0.md`): share approved items with adult recipients, recipient questions and reports. Posthumous/milestone release not in MVP |
 | — | Guided prompt library (module 05) | **Built, tested** (ADR-010): 35 editorial prompts, follow-ups, gaps from practice |
 | — | Legacy deletion (AC-12) | **Built, tested**: second factor + typed title; cascades everywhere; minimised audit kept |
-| 6 | Pilot telemetry | Not started |
+| 6 | Pilot telemetry | **Built, tested** (ADR-011): author 'Your progress' + operator-only aggregate measures (H1/H2/H8); no new data collected. Use with real participants needs approval ⚖ |
 
 ## Layout
 ```text

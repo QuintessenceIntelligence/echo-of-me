@@ -4,6 +4,7 @@ import { listCurrentDocuments, REQUIRED_AUTHOR_CONSENTS } from "../../src/domain
 import { getOverview, RELATIONSHIPS } from "../../src/domain/onboarding";
 import { listMemories } from "../../src/domain/vault";
 import { listReports } from "../../src/domain/sharing";
+import { getProgress } from "../../src/domain/progress";
 import { submitStopSharingWith } from "../vault-actions";
 import { requireSession } from "../../src/server/session";
 import {
@@ -36,6 +37,8 @@ export default async function LegacyDashboard({ searchParams }: { searchParams: 
   const items = await listMemories(ctx, l.id);
   const approvedCount = items.filter((i) => i.approval === "approved").length;
   const openReports = (await listReports(ctx, l.id)).filter((r) => !r.resolvedAt).length;
+  const progress = await getProgress(ctx, l.id);
+  const practiceTotal = progress.practiceAnswered + progress.practiceNotRecorded;
 
   return (
     <>
@@ -75,6 +78,20 @@ export default async function LegacyDashboard({ searchParams }: { searchParams: 
         <p className="notice info">
           {openReports} answer{openReports === 1 ? " was" : "s were"} reported by your recipients. <Link href="/legacy/reports">Review reports</Link>
         </p>
+      )}
+
+      {items.length > 0 && (
+        <section className="card" id="progress" aria-labelledby="progress-h">
+          <h2 id="progress-h">Your progress</h2>
+          <ul className="stats">
+            <li><strong>{progress.approvedItems}</strong> approved{progress.draftItems ? `, ${progress.draftItems} draft${progress.draftItems === 1 ? "" : "s"}` : ""}</li>
+            <li><strong>{progress.recordings}</strong> recording{progress.recordings === 1 ? "" : "s"} or photo{progress.recordings === 1 ? "" : "s"}</li>
+            <li><strong>{progress.captureDays}</strong> day{progress.captureDays === 1 ? "" : "s"} spent preserving{progress.daysSinceLastCapture !== null && progress.daysSinceLastCapture > 13 ? ` · last time ${progress.daysSinceLastCapture} days ago` : ""}</li>
+            {practiceTotal > 0 && <li><strong>{progress.practiceNotRecorded}</strong> of {practiceTotal} practice question{practiceTotal === 1 ? "" : "s"} found nothing recorded</li>}
+            {progress.sharedItems > 0 && <li><strong>{progress.sharedItems}</strong> item{progress.sharedItems === 1 ? "" : "s"} shared</li>}
+          </ul>
+          <p className="muted small">Only you can see this. It is worked out from your own records; nothing extra is collected.</p>
+        </section>
       )}
 
       <section className="card" id="recipients" aria-labelledby="recipients-h">
