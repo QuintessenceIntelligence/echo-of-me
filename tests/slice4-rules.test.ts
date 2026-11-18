@@ -141,6 +141,19 @@ describe("Answer it yourself (correction)", () => {
 });
 
 describe("Audit, immutability and isolation", () => {
+  it("rules belong to one legacy: an author with two legacies keeps them separate", async () => {
+    const { a, legacyId, ids: m } = await setup("twoLegacies");
+    const { legacyId: second } = await createLegacy(a, { title: "Second", authorDisplayName: "Mum" });
+    const { memoryId: other } = await createMemory(a, second, { kind: "memory", title: "Exams in the second legacy", body: "Different words about exams.", approve: true });
+    const q = await rehearse(a, legacyId, "Tell me about exams");
+    await pinAnswer(a, legacyId, q.turnId, m.exam);
+    await expect(pinAnswer(a, second, q.turnId, other)).rejects.toBeInstanceOf(NotFoundError); // question belongs to the first legacy
+    const inSecond = await rehearse(a, second, "Tell me about exams");
+    expect(inSecond.rules.pinnedAt).toBeNull();
+    expect(ids(inSecond)).toEqual([other]);
+    expect(await listAnswerRules(a, second)).toEqual([]);
+  });
+
   it("rule changes are audited without question text and cannot be edited in place", async () => {
     const { a, legacyId, ids: m } = await setup();
     const q = await rehearse(a, legacyId, "Tell me about exams");

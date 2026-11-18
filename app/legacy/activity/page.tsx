@@ -38,6 +38,10 @@ const ACTION_LABEL: Record<string, string> = {
   "legacy.export": "Export downloaded",
   "answer.rehearse": "Practice question answered",
   "rehearsal.clear": "Practice history cleared",
+  "answer.pin": "Answer pinned",
+  "answer.suppress": "Item hidden for a question",
+  "answer.correct": "Answer written in your own words",
+  "answer.rule_remove": "Answer rule removed",
 };
 
 const REASON_LABEL: Record<string, string> = {

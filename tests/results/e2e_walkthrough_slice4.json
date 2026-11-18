@@ -1,0 +1,64 @@
+{
+  "base_url": "http://localhost:3000",
+  "steps": [
+    {
+      "step": "Three approved items created",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Unknown question answered 'Not recorded'",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "'Answer it yourself' saves an approved item and the same question now gets those exact words as E1",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Direct answer from 'Failing at work'",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "After 'Don't use this', the item disappears from that answer and the hidden count is shown",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Unrelated question offers things that were recorded",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Pinning an adjacent item makes it the direct answer",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Rules list shows the two pins and the hidden item",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Removing the rule brings the item back",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Activity log records the rule changes without question text",
+      "passed": true,
+      "note": ""
+    }
+  ],
+  "accessibility": {
+    "rehearse_pinned_answer": [],
+    "rehearse_rules": []
+  },
+  "summary": {
+    "steps": 10,
+    "failed": 0,
+    "axe_violation_types": 0
+  }
+}

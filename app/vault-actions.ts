@@ -189,20 +189,53 @@ export async function submitDecideTag(fd: FormData) {
 
 // ---------------------------------------------------------------- rehearsal (slice 3a)
 
-export type RehearseState = { question?: string; answer?: import("../src/domain/rehearsal").Answer; error?: string };
+export type RehearseState = { question?: string; answer?: import("../src/domain/rehearsal").Answer; error?: string; notice?: string };
 
-export async function rehearseAction(_prev: RehearseState, fd: FormData): Promise<RehearseState> {
+/**
+ * One action for the practice page: ask a question, or teach (pin / suppress / answer it yourself) and
+ * then ask the same question again, so the author immediately sees the effect of the change.
+ */
+export async function rehearseAction(prev: RehearseState, fd: FormData): Promise<RehearseState> {
   const ctx = await readSession();
   if (!ctx) return { error: "Please sign in again." };
-  const question = str(fd, "question");
+  const r = await import("../src/domain/rehearsal");
+  const legacyId = str(fd, "legacyId");
+  const op = str(fd, "op") || "ask";
+  const question = op === "ask" ? str(fd, "question") : prev.question ?? str(fd, "question");
+  let notice: string | undefined;
   try {
-    const { rehearse } = await import("../src/domain/rehearsal");
-    const answer = await rehearse(ctx, str(fd, "legacyId"), question);
+    if (op === "pin") {
+      await r.pinAnswer(ctx, legacyId, str(fd, "turnId"), str(fd, "memoryId"));
+      notice = "Pinned. From now on this item answers this question.";
+    } else if (op === "suppress") {
+      await r.suppressForQuestion(ctx, legacyId, str(fd, "turnId"), str(fd, "memoryId"));
+      notice = "Done. This item will not be used for this question.";
+    } else if (op === "own") {
+      await r.answerYourself(ctx, legacyId, str(fd, "turnId"), {
+        kind: str(fd, "kind") === "memory" ? "memory" : "value_statement",
+        body: str(fd, "body"),
+      });
+      notice = "Saved in your own words, approved, and pinned to this question.";
+    } else if (op !== "ask") {
+      return { ...prev, error: "Unknown action." };
+    }
+    const answer = await r.rehearse(ctx, legacyId, question);
     revalidatePath("/legacy/rehearse");
-    return { question, answer };
+    return { question, answer, notice };
   } catch (err) {
-    return { question, error: messageFor(err) };
+    return { ...prev, question, error: messageFor(err), notice: undefined };
   }
+}
+
+export async function submitRemoveRule(fd: FormData) {
+  const ctx = await requireSession("/legacy/rehearse");
+  try {
+    const { removeAnswerRule } = await import("../src/domain/rehearsal");
+    await removeAnswerRule(ctx, str(fd, "legacyId"), str(fd, "ruleId"));
+  } catch (err) {
+    go("/legacy/rehearse#rules", "error", messageFor(err));
+  }
+  go("/legacy/rehearse#rules", "ok", "Rule removed. Answers to that question are back to normal.");
 }
 
 export async function submitClearRehearsal(fd: FormData) {
