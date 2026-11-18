@@ -32,6 +32,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci --no-audit --no-fund
+      # S3 emulator for the media-storage adapter tests (tests/storage-s3.test.ts skips without it).
+      - run: pip install "moto[server]==5.2.5"
       - run: npm run typecheck
       - run: npm test
       - run: npm run build

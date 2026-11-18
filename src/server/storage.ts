@@ -1,3 +1,4 @@
+import { AwsClient } from "aws4fetch";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
@@ -11,7 +12,9 @@ import { dirname, join, resolve, sep } from "node:path";
  * Adapters:
  *  - LocalBlobStore: a directory on the server's disk. Development and tests only. Refused on hosted
  *    deployments (Vercel's filesystem is not durable), like the development sign-in.
- *  - Supabase Storage: planned for the hosted preview (private bucket, server-side access only).
+ *  - S3BlobStore: any S3-compatible service, intended for Supabase Storage's S3 protocol (ADR-014):
+ *    private bucket, server-side access only, with storage-only access keys (they cannot reach the
+ *    database, unlike a service-role key).
  */
 export interface BlobStore {
   readonly name: string;
@@ -84,10 +87,134 @@ export class LocalBlobStore implements BlobStore {
   }
 }
 
-/** Mirrors auth-mode: the local disk store can never be used on a hosted deployment. */
-export function storageBackend(env: Record<string, string | undefined> = process.env): "local" | "unconfigured" {
+export interface S3Config {
+  /** Path-style endpoint, e.g. https://<project_ref>.storage.supabase.co/storage/v1/s3 */
+  endpoint: string;
+  region: string;
+  bucket: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  /** Tests only: page size for listing. */
+  listPageSize?: number;
+  /** Per-request timeout in milliseconds (default 60 s). */
+  timeoutMs?: number;
+}
+
+const LEGACY_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+function xmlValues(xml: string, tag: string): string[] {
+  const out: string[] = [];
+  const re = new RegExp(`<${tag}>([^<]*)</${tag}>`, "g");
+  for (let m = re.exec(xml); m; m = re.exec(xml)) {
+    out.push(m[1].replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&"));
+  }
+  return out;
+}
+
+/**
+ * S3-compatible object storage, path-style (as Supabase Storage requires). Requests are signed with
+ * AWS Signature V4 (aws4fetch, no other dependencies). Every upload sends the SHA-256 of the body, so an
+ * S3 service that checks payload hashes rejects a corrupted upload; the domain layer also reads every
+ * upload back and checks it (vault.addMedia). Error messages never include credentials or keys.
+ */
+export class S3BlobStore implements BlobStore {
+  readonly name = "s3";
+  private readonly client: AwsClient;
+  private readonly base: string;
+  private readonly pageSize: number;
+  private readonly timeoutMs: number;
+
+  constructor(cfg: S3Config) {
+    let u: URL;
+    try {
+      u = new URL(cfg.endpoint);
+    } catch {
+      throw new Error("Invalid storage endpoint");
+    }
+    const local = u.hostname === "localhost" || u.hostname === "127.0.0.1";
+    if (u.protocol !== "https:" && !(local && u.protocol === "http:")) throw new Error("Storage endpoint must use HTTPS");
+    if (u.search || u.hash || u.username || u.password) throw new Error("Invalid storage endpoint");
+    if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(cfg.bucket)) throw new Error("Invalid storage bucket name");
+    if (!cfg.region || !cfg.accessKeyId || !cfg.secretAccessKey) throw new Error("Storage credentials are incomplete");
+    this.client = new AwsClient({ accessKeyId: cfg.accessKeyId, secretAccessKey: cfg.secretAccessKey, region: cfg.region, service: "s3", retries: 2 });
+    this.base = `${u.origin}${u.pathname.replace(/\/+$/, "")}/${cfg.bucket}`;
+    this.pageSize = Math.min(Math.max(cfg.listPageSize ?? 1000, 1), 1000);
+    this.timeoutMs = cfg.timeoutMs ?? 60_000;
+  }
+
+  private url(key: string): string {
+    assertKey(key); // only "<uuid>/<uuid>": nothing needs escaping and nothing can traverse
+    return `${this.base}/${key}`;
+  }
+
+  private async send(url: string, init: RequestInit & { headers?: Record<string, string> }, what: string): Promise<Response> {
+    const res = await this.client.fetch(url, { ...init, signal: AbortSignal.timeout(this.timeoutMs) });
+    if (res.ok || res.status === 404) return res;
+    await res.body?.cancel().catch(() => undefined);
+    throw new Error(`Storage ${what} failed (HTTP ${res.status})`);
+  }
+
+  async put(key: string, bytes: Buffer) {
+    const sha256 = sha256Hex(bytes);
+    const res = await this.send(
+      this.url(key),
+      {
+        method: "PUT",
+        body: new Uint8Array(bytes),
+        headers: { "content-type": "application/octet-stream", "x-amz-content-sha256": sha256 },
+      },
+      "upload",
+    );
+    if (res.status === 404) throw new Error("Storage upload failed (bucket not found)");
+    await res.body?.cancel().catch(() => undefined);
+    return { sha256, size: bytes.length };
+  }
+
+  async get(key: string) {
+    const res = await this.send(this.url(key), { method: "GET" }, "download");
+    if (res.status === 404) {
+      await res.body?.cancel().catch(() => undefined);
+      throw new BlobNotFoundError();
+    }
+    return Buffer.from(await res.arrayBuffer());
+  }
+
+  async delete(key: string) {
+    const res = await this.send(this.url(key), { method: "DELETE" }, "delete");
+    await res.body?.cancel().catch(() => undefined);
+  }
+
+  async removeLegacy(legacyId: string) {
+    if (!LEGACY_RE.test(legacyId)) throw new Error("Invalid legacy id");
+    let token: string | undefined;
+    do {
+      const q = new URLSearchParams({ "list-type": "2", prefix: `${legacyId}/`, "max-keys": String(this.pageSize) });
+      if (token) q.set("continuation-token", token);
+      const res = await this.send(`${this.base}?${q.toString()}`, { method: "GET" }, "listing");
+      if (res.status === 404) throw new Error("Storage listing failed (bucket not found)");
+      const xml = await res.text();
+      // Only ever delete keys of the expected shape under this legacy.
+      for (const key of xmlValues(xml, "Key")) {
+        if (key.startsWith(`${legacyId}/`) && KEY_RE.test(key)) await this.delete(key);
+      }
+      token = xmlValues(xml, "IsTruncated")[0] === "true" ? xmlValues(xml, "NextContinuationToken")[0] : undefined;
+    } while (token);
+  }
+}
+
+export type StorageBackend = "local" | "s3" | "unconfigured";
+
+const S3_ENV = ["STORAGE_S3_ENDPOINT", "STORAGE_S3_REGION", "STORAGE_S3_BUCKET", "STORAGE_S3_ACCESS_KEY_ID", "STORAGE_S3_SECRET_ACCESS_KEY"] as const;
+
+/**
+ * Mirrors auth-mode: the local disk store can never be used on a hosted deployment. S3 storage is used
+ * only when explicitly selected and fully configured; anything else is "unconfigured" and media
+ * features refuse to run rather than silently losing files.
+ */
+export function storageBackend(env: Record<string, string | undefined> = process.env): StorageBackend {
   const hosted = Boolean(env.VERCEL) || Boolean(env.ECHO_HOSTED);
   const backend = env.STORAGE_BACKEND ?? "local";
+  if (backend === "s3") return S3_ENV.every((k) => Boolean(env[k])) ? "s3" : "unconfigured";
   return backend === "local" && !hosted ? "local" : "unconfigured";
 }
 
@@ -95,10 +222,20 @@ let store: BlobStore | undefined;
 
 export function getBlobStore(): BlobStore {
   if (!store) {
-    if (storageBackend() !== "local") {
+    const backend = storageBackend();
+    if (backend === "s3") {
+      store = new S3BlobStore({
+        endpoint: process.env.STORAGE_S3_ENDPOINT!,
+        region: process.env.STORAGE_S3_REGION!,
+        bucket: process.env.STORAGE_S3_BUCKET!,
+        accessKeyId: process.env.STORAGE_S3_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.STORAGE_S3_SECRET_ACCESS_KEY!,
+      });
+    } else if (backend === "local") {
+      store = new LocalBlobStore(process.env.STORAGE_DIR ?? ".data/blobs");
+    } else {
       throw new Error("No durable media storage is configured for this deployment.");
     }
-    store = new LocalBlobStore(process.env.STORAGE_DIR ?? ".data/blobs");
   }
   return store;
 }
