@@ -1,0 +1,40 @@
+# Echo of Me | Continuous integration.
+# MANUAL TRIGGER ONLY for now (workflow_dispatch): nothing runs, and no GitHub Actions minutes are used,
+# until the founder chooses to enable automatic runs (DR-054, spending authority R0). To enable later,
+# add:  push: { branches: [main] }  and  pull_request:  under "on".
+name: CI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: ci-only-not-a-secret
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_PG_URL: postgresql://postgres:ci-only-not-a-secret@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+        env:
+          # Build only; the dev sign-in is never enabled on hosted deployments.
+          NEXT_TELEMETRY_DISABLED: "1"

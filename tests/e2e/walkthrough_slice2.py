@@ -36,7 +36,10 @@ def step(name, ok=True, note=""):
 
 def axe(page, label):
     page.wait_for_load_state("networkidle")
-    page.wait_for_function("document.title.length > 0")
+    for _ in range(50):  # polled from the test side: the app's CSP forbids evaluating strings in the page
+        if page.title():
+            break
+        page.wait_for_timeout(100)
     page.add_script_tag(path=str(AXE))
     r = page.evaluate(
         """async () => (await axe.run(document, {runOnly: {type: 'tag', values: ['wcag2a','wcag2aa','wcag21aa','wcag22aa']}}))

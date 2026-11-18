@@ -23,7 +23,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <Link href={session ? "/home" : "/"} className="brand">
               Echo <span>of</span> Me
             </Link>
-            <div className="row" style={{ flex: "0 0 auto", alignItems: "center" }}>
+            <div className="row header-actions">
               <span className="prerelease" title="Pre-release test build. Do not store real personal material yet.">
                 Pre-release test build
               </span>

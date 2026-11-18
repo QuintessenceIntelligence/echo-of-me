@@ -163,8 +163,8 @@ export default async function LegacyDashboard({ searchParams }: { searchParams: 
                 </select>
               </div>
             </div>
-            <fieldset style={{ border: 0, padding: 0, margin: "12px 0 0" }}>
-              <legend style={{ fontWeight: 550 }}>Age</legend>
+            <fieldset className="plain">
+              <legend>Age</legend>
               <label className="check"><input type="radio" name="ageGroup" value="adult" defaultChecked /> Adult (18 or older)</label>
               <label className="check"><input type="radio" name="ageGroup" value="minor" /> Under 18 (kept as a record only, no email)</label>
             </fieldset>

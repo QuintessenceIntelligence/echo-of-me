@@ -23,7 +23,7 @@ export function InviteButton({ legacyId, recipientId, label }: { legacyId: strin
       )}
       {state.link && (
         <div className="notice ok small" role="status">
-          <p style={{ margin: 0 }}>
+          <p className="flush">
             Invitation created. Email sending is not connected in this build, so copy this one-time link and send it
             yourself. It works once, only for the email address you entered, and expires on{" "}
             {new Date(state.expiresAt!).toLocaleDateString("en-ZA")}. It will not be shown again.

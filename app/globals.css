@@ -138,3 +138,7 @@ form.inline { display: inline; }
 /* Slice 6: progress */
 .stats { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px 16px; }
 .stats strong { font-size: 1.3rem; color: var(--teal); margin-right: 4px; }
+
+/* Classes replacing inline styles (strict Content-Security-Policy) */
+.header-actions { flex: 0 0 auto; align-items: center; }
+.flush { margin: 0; }

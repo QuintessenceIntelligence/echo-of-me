@@ -100,3 +100,19 @@ describe("Export download accepts only same-site posts", () => {
     expect(isSameOrigin(h({}))).toBe(false);
   });
 });
+
+describe("Content-Security-Policy", () => {
+  it("allows only nonce'd scripts, no inline styles or plugins, no framing, and upgrades to HTTPS only when hosted", async () => {
+    const { buildCsp } = await import("../proxy");
+    const prod = buildCsp("abc123", { dev: false, hosted: true });
+    expect(prod).toContain("script-src 'self' 'nonce-abc123' 'strict-dynamic'");
+    expect(prod).not.toContain("unsafe-eval");
+    expect(prod).not.toContain("unsafe-inline");
+    expect(prod).toContain("object-src 'none'");
+    expect(prod).toContain("frame-ancestors 'none'");
+    expect(prod).toContain("media-src 'self' blob:");
+    expect(prod).toContain("upgrade-insecure-requests");
+    expect(buildCsp("x", { dev: false, hosted: false })).not.toContain("upgrade-insecure-requests");
+    expect(buildCsp("x", { dev: true, hosted: false })).toContain("'unsafe-eval'");
+  });
+});
