@@ -62,6 +62,9 @@ export default async function SharedPage({ params }: { params: Promise<{ legacyI
           </section>
         </>
       )}
+      <p className="muted small">
+        You can download your own data or leave this legacy at any time from <Link href="/account#memberships">Your account</Link>.
+      </p>
     </>
   );
 }

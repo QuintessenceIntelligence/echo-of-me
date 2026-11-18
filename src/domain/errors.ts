@@ -42,3 +42,10 @@ export class PolicyError extends DomainError {
     super(code, message);
   }
 }
+
+/** The signed-in account was closed (or never existed). Nothing can be done with it; sign in again. */
+export class AccountUnavailableError extends DomainError {
+  constructor() {
+    super("account_unavailable", "This account is closed or no longer available. Please sign in again.");
+  }
+}

@@ -142,3 +142,9 @@ form.inline { display: inline; }
 /* Classes replacing inline styles (strict Content-Security-Policy) */
 .header-actions { flex: 0 0 auto; align-items: center; }
 .flush { margin: 0; }
+
+/* Account page (ADR-013) */
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; }
+.facts dt { font-weight: 600; }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+.subcard { border-top: 1px solid var(--navy-700); padding-top: 12px; margin-top: 12px; }

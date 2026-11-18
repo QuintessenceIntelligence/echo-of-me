@@ -295,7 +295,7 @@ export interface RecipientView {
   relationship: string;
   isMinor: boolean;
   email: string | null;
-  invitationStatus: "not_invited" | "invited" | "accepted" | "revoked";
+  invitationStatus: "not_invited" | "invited" | "accepted" | "revoked" | "left";
   /** Always 0 in slice 1: nothing can be shared until the sharing slice exists (AC-02). */
   sharedItemCount: number;
 }

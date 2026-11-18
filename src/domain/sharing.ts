@@ -16,12 +16,12 @@ import { enforceLimit } from "./limits";
 
 const UUID = z.uuid();
 
-export type ShareEligibility = "ok" | "minor" | "not_invited" | "revoked";
+export type ShareEligibility = "ok" | "minor" | "not_invited" | "revoked" | "left";
 
 export interface ShareTarget {
   recipientId: string;
   displayName: string;
-  invitationStatus: "not_invited" | "invited" | "accepted" | "revoked";
+  invitationStatus: "not_invited" | "invited" | "accepted" | "revoked" | "left";
   isMinor: boolean;
   eligibility: ShareEligibility;
   shared: boolean;
@@ -39,6 +39,7 @@ function eligibility(r: { is_minor: boolean; invitation_status: string }): Share
   if (r.is_minor) return "minor";
   if (r.invitation_status === "not_invited") return "not_invited";
   if (r.invitation_status === "revoked") return "revoked";
+  if (r.invitation_status === "left") return "left";
   return "ok";
 }
 
@@ -112,7 +113,7 @@ export async function setItemShares(
       if (found.length !== toAdd.length) throw new NotFoundError("recipient");
       const blocked = found.find((r) => eligibility(r) !== "ok");
       if (blocked) {
-        const why = { minor: "Children cannot receive shared items in this version.", not_invited: "Invite this person before sharing with them.", revoked: "This person's invitation was cancelled. Invite them again first." }[eligibility(blocked) as Exclude<ShareEligibility, "ok">];
+        const why = { minor: "Children cannot receive shared items in this version.", not_invited: "Invite this person before sharing with them.", revoked: "This person's invitation was cancelled. Invite them again first.", left: "This person left your legacy. Invite them again first if you both wish." }[eligibility(blocked) as Exclude<ShareEligibility, "ok">];
         throw new ValidationError(why);
       }
     }

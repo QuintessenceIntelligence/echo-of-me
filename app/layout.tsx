@@ -27,6 +27,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <span className="prerelease" title="Pre-release test build. Do not store real personal material yet.">
                 Pre-release test build
               </span>
+              {session && <Link href="/account" className="small">Your account</Link>}
               {session && (
                 <form action={signOut}>
                   <button className="link" type="submit">Sign out</button>

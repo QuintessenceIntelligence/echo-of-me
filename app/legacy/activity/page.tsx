@@ -54,6 +54,9 @@ const ACTION_LABEL: Record<string, string> = {
   "legacy.delete": "Legacy deleted",
   "prompt.dismiss": "Prompt hidden",
   "prompt.restore": "Prompt shown again",
+  "membership.leave": "A recipient left your legacy (their access ended)",
+  "account.close": "Account closed",
+  "account.export": "Account data downloaded",
   "rate_limit.refused": "Paused for a while: too many attempts in a short time",
 };
 
@@ -80,6 +83,8 @@ const REASON_LABEL: Record<string, string> = {
   storage_full: "storage limit reached",
   answers_off: "answers are switched off",
   rate_limited: "too many attempts in a short time",
+  account_closed: "because they closed their account",
+  owns_legacy: "a legacy must be deleted first",
   legacy_not_active: "legacy not active",
 };
 

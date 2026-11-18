@@ -199,8 +199,8 @@ with sync_playwright() as p:
     r.goto(shared_url)
     step("Re-approved item is visible again with the new words", "Rewriting this memory" in r.locator("main").inner_text())
     a.goto(BASE + "/legacy")
-    with a.expect_navigation():
-        a.get_by_role("button", name="Stop sharing everything with Asha").click()
+    a.get_by_role("button", name="Stop sharing everything with Asha").click()
+    a.wait_for_url("**/legacy?ok=**")  # wait for the action's own redirect, not any navigation
     r.goto(shared_url)
     step("After 'Stop sharing everything', the recipient sees nothing", "Nothing has been shared with you yet" in r.locator("main").inner_text())
     step("The recording can no longer be fetched", r.request.get(BASE + audio_src).status == 404)

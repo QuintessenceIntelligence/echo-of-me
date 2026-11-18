@@ -2,7 +2,7 @@ import { authMode } from "../../src/server/session";
 import { devSignIn } from "../actions";
 import { Notices } from "../components";
 
-export default async function SignIn({ searchParams }: { searchParams: Promise<{ next?: string; error?: string }> }) {
+export default async function SignIn({ searchParams }: { searchParams: Promise<{ next?: string; error?: string; ok?: string }> }) {
   const sp = await searchParams;
   if (authMode() !== "dev") {
     return (

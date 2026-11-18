@@ -53,6 +53,7 @@ export default async function MemoryPage({
     minor: "child, record only",
     not_invited: "invite them first",
     revoked: "invitation cancelled",
+    left: "left, invite them again first",
   };
   const hidden = (
     <>

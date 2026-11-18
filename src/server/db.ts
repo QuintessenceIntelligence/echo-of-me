@@ -1,10 +1,12 @@
 import pg from "pg";
+import { AccountUnavailableError } from "../domain/errors";
 
 /**
  * Database access with two explicit contexts (ADR-005):
  *
  *  - withActor(accountId, fn): every normal request. The transaction switches to role `echo_app`
- *    and sets app.account_id, so Postgres row-level security applies to every statement.
+ *    and sets app.account_id through app.set_actor (which refuses closed accounts), so Postgres
+ *    row-level security applies to every statement.
  *  - withAnonymous(fn): application role with no account (only to call app.provision_account).
  *  - withSystem(fn): owner-level access for migrations and tests only. The hosted app connects as
  *    echo_app_login (NOINHERIT), which cannot do anything without SET ROLE echo_app.
@@ -34,7 +36,11 @@ export async function withActor<T>(accountId: string, fn: (db: Queryable) => Pro
   try {
     await client.query("begin");
     await client.query("set local role echo_app");
-    await client.query("select set_config('app.account_id', $1, true)", [accountId]);
+    // Refuses closed or unknown accounts (migration 0014), so a stale session can do nothing.
+    await client.query("select app.set_actor($1)", [accountId]).catch((err: unknown) => {
+      if ((err as { message?: string }).message === "account_unavailable") throw new AccountUnavailableError();
+      throw err;
+    });
     const result = await fn(client);
     await client.query("commit");
     return result;

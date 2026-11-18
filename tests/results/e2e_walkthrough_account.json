@@ -1,0 +1,70 @@
+{
+  "base_url": "http://localhost:3000",
+  "steps": [
+    {
+      "step": "Set-up: Asha joined and one item is shared with her",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Account page shows details, the legacy joined, and the three rights",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Downloading your data asks for the second factor first",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "The download holds the account's own data and none of the author's words",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Asha leaves; access ends",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "The author sees that she left and can invite her again",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "The author's activity log records it",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "A wrong email address is refused",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Closing signs her out with a clear confirmation",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "The old session no longer works",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "An author is told to export and delete the legacy before closing",
+      "passed": true,
+      "note": ""
+    }
+  ],
+  "accessibility": {
+    "account_page": [],
+    "sign_in_after_close": [],
+    "account_page_author": []
+  },
+  "summary": {
+    "steps": 11,
+    "failed": 0,
+    "axe_violation_types": 0
+  }
+}

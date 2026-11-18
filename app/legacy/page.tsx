@@ -24,6 +24,7 @@ const STATUS_LABEL: Record<string, string> = {
   invited: "Invitation sent",
   accepted: "Joined",
   revoked: "Invitation cancelled",
+  left: "Left (you can invite them again)",
 };
 
 export default async function LegacyDashboard({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
