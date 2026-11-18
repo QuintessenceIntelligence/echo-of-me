@@ -318,3 +318,19 @@ export async function recipientAction(prev: RecipientAskState, fd: FormData): Pr
     return { question, error: messageFor(err), reported: prev.reported };
   }
 }
+
+// ---------------------------------------------------------------- legacy deletion (AC-12)
+
+export async function submitDeleteLegacy(fd: FormData) {
+  const ctx = await requireSession("/legacy/delete");
+  if (fd.get("understand") !== "on") go("/legacy/delete", "error", "Please tick the box to confirm that you understand.");
+  const { deleteLegacy } = await import("../src/domain/deletion");
+  try {
+    await deleteLegacy(ctx, str(fd, "legacyId"), str(fd, "confirmTitle"));
+  } catch (err) {
+    if (err instanceof DomainError && err.code === "mfa_required") redirect("/mfa?next=/legacy/delete");
+    go("/legacy/delete", "error", messageFor(err));
+  }
+  revalidatePath("/legacy");
+  redirect(`/onboarding/legacy?ok=${encodeURIComponent("Your legacy and everything in it was permanently deleted.")}`);
+}

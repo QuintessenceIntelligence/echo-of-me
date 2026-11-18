@@ -18,6 +18,8 @@ export interface BlobStore {
   put(key: string, bytes: Buffer): Promise<{ sha256: string; size: number }>;
   get(key: string): Promise<Buffer>;
   delete(key: string): Promise<void>;
+  /** Removes everything stored for one legacy (after its database rows are gone). */
+  removeLegacy(legacyId: string): Promise<void>;
 }
 
 const KEY_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -72,6 +74,13 @@ export class LocalBlobStore implements BlobStore {
 
   async delete(key: string) {
     await rm(this.path(key), { force: true });
+  }
+
+  async removeLegacy(legacyId: string) {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(legacyId)) throw new Error("Invalid legacy id");
+    const dir = resolve(this.root, legacyId);
+    if (!dir.startsWith(this.root + sep)) throw new Error("Invalid legacy id");
+    await rm(dir, { recursive: true, force: true });
   }
 }
 

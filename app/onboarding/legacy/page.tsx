@@ -4,7 +4,7 @@ import { requireSession } from "../../../src/server/session";
 import { submitCreateLegacy } from "../../actions";
 import { Notices } from "../../components";
 
-export default async function LegacyStep({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+export default async function LegacyStep({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   const sp = await searchParams;
   const ctx = await requireSession("/onboarding/legacy");
   const o = await getOverview(ctx);

@@ -228,6 +228,7 @@ export default async function LegacyDashboard({ searchParams }: { searchParams: 
       <div className="actions">
         <Link className="button secondary" href="/legacy/activity">Activity log</Link>
         <Link className="button secondary" href="/legacy/export">Export everything</Link>
+        <Link className="button secondary" href="/legacy/delete">Delete this legacy</Link>
         {ctx.aal !== "aal2" && <Link className="button secondary" href="/mfa?next=/legacy">Confirm second factor</Link>}
       </div>
     </>

@@ -1,0 +1,43 @@
+{
+  "base_url": "http://localhost:3000",
+  "steps": [
+    {
+      "step": "Legacy with a memory and a recording exists",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Delete page explains what will be deleted and what is kept",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Deletion asks for the second factor first",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "A wrong title is refused and nothing is deleted",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Deletion confirmed and the author can start again",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "The recording is gone",
+      "passed": true,
+      "note": ""
+    }
+  ],
+  "accessibility": {
+    "delete_page": []
+  },
+  "summary": {
+    "steps": 6,
+    "failed": 0,
+    "axe_violation_types": 0
+  }
+}

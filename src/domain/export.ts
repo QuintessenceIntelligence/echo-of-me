@@ -29,6 +29,9 @@ export interface ExportManifest {
   recipients: Record<string, unknown>[];
   trusted_contacts: Record<string, unknown>[];
   memories: Record<string, unknown>[];
+  answer_rules: Record<string, unknown>[];
+  practice_questions: Record<string, unknown>[];
+  reports_received: Record<string, unknown>[];
   consents: Record<string, unknown>[];
   activity_log: Record<string, unknown>[];
   files: { path: string; media_id: string; sha256: string; bytes: number; mime_type: string }[];
@@ -56,6 +59,10 @@ export async function exportLegacy(ctx: AuthContext, legacyId: string): Promise<
     const tversions = await q("select * from transcript_version where legacy_id = $1 order by media_asset_id, version_no");
     const tags = await q("select * from memory_tag where legacy_id = $1 order by memory_id, kind, lower(label)");
     const audience = await q("select memory_id, recipient_id from memory_audience where legacy_id = $1");
+    const shares = await q("select memory_id, recipient_id, granted_at, sensitive_confirmed from share_grant where legacy_id = $1");
+    const rules = await q("select action, question, memory_id, created_at from answer_rule where legacy_id = $1 order by created_at");
+    const practice = await q("select question, kind, evidence, source_ids, created_at from rehearsal_turn where legacy_id = $1 order by created_at");
+    const reports = await q("select reason, note, question, evidence, source_ids, created_at, resolved_at from answer_report where legacy_id = $1 order by created_at");
     const consents = await q(
       `select e.purpose, e.action, e.recorded_at, d.version, d.body_sha256, e.legacy_id
          from consent_event e join consent_document d on d.id = e.consent_document_id
@@ -67,7 +74,7 @@ export async function exportLegacy(ctx: AuthContext, legacyId: string): Promise<
          from audit_event where legacy_id = $1 or (legacy_id is null and actor_account_id = $2) order by occurred_at`,
       [legacyId, ctx.accountId],
     );
-    return { legacy, recipients, trusted, items, versions, media, transcripts, tversions, tags, audience, consents, log };
+    return { legacy, recipients, trusted, items, versions, media, transcripts, tversions, tags, audience, shares, rules, practice, reports, consents, log };
   });
 
   const store = getBlobStore();
@@ -90,6 +97,9 @@ export async function exportLegacy(ctx: AuthContext, legacyId: string): Promise<
     current_version: i.current_version,
     sensitivity: i.sensitivity,
     intended_for_recipient_ids: data.audience.filter((a) => a.memory_id === i.id).map((a) => a.recipient_id),
+    shared_with: data.shares
+      .filter((g) => g.memory_id === i.id)
+      .map((g) => ({ recipient_id: g.recipient_id, shared_at: iso(g.granted_at), sensitive_confirmed: g.sensitive_confirmed })),
     created_at: iso(i.created_at),
     versions: data.versions
       .filter((v) => v.memory_id === i.id)
@@ -145,6 +155,9 @@ export async function exportLegacy(ctx: AuthContext, legacyId: string): Promise<
     recipients: data.recipients.map((r) => ({ ...r, created_at: iso(r.created_at) })),
     trusted_contacts: data.trusted.map((t) => ({ ...t, created_at: iso(t.created_at) })),
     memories,
+    answer_rules: data.rules.map((r) => ({ ...r, created_at: iso(r.created_at) })),
+    practice_questions: data.practice.map((t) => ({ ...t, created_at: iso(t.created_at) })),
+    reports_received: data.reports.map((r) => ({ ...r, created_at: iso(r.created_at), resolved_at: iso(r.resolved_at) })),
     consents: data.consents.map((c) => ({ ...c, recorded_at: iso(c.recorded_at) })),
     activity_log: data.log.map((l) => ({ ...l, occurred_at: iso(l.occurred_at) })),
     files,
@@ -157,7 +170,9 @@ export async function exportLegacy(ctx: AuthContext, legacyId: string): Promise<
     `Format: ${EXPORT_FORMAT}`,
     `Exported: ${manifest.exported_at}`,
     "",
-    "legacy.json   Everything you wrote, every version, approvals, tags, consents and the activity log.",
+    "legacy.json   Everything you wrote, every version, approvals, tags, who each item is shared with,",
+    "              your answer rules and practice questions, reports from recipients, consents and the activity log.",
+    "              (Recipients' own questions are theirs and are not included.)",
     "originals/    Your recordings and photos exactly as you made them. Check them with: sha256sum originals/*",
     "SHA256SUMS    The expected fingerprint of each original.",
     "",

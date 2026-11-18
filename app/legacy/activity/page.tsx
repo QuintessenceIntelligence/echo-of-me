@@ -51,6 +51,7 @@ const ACTION_LABEL: Record<string, string> = {
   "answer.recipient": "A recipient asked a question (answered from your shared items)",
   "answer.report": "A recipient reported an answer",
   "answer.report_resolve": "Report marked as dealt with",
+  "legacy.delete": "Legacy deleted",
 };
 
 const REASON_LABEL: Record<string, string> = {
