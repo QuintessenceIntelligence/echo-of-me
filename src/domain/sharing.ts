@@ -5,6 +5,7 @@ import { requireMfa, type AuthContext } from "./auth";
 import { assertConsents } from "./consent";
 import { NotFoundError, PolicyError, ValidationError } from "./errors";
 import { ownedLegacy } from "./onboarding";
+import { enforceLimit } from "./limits";
 
 /**
  * Sharing with adult recipients (slice 5, ADR-009). The author shares approved items with named
@@ -250,6 +251,7 @@ export async function reportAnswer(ctx: AuthContext, legacyId: string, turnId: s
   const p = ReportInput.safeParse(input);
   if (!p.success) throw new ValidationError(p.error.issues[0].message);
   if (!UUID.safeParse(turnId).success) throw new NotFoundError("answer");
+  await enforceLimit(ctx, "report", legacyId);
   return guarded(ctx, "answer.report", { legacyId, targetType: "recipient_turn", targetId: turnId }, async (db) => {
     await membership(db, legacyId);
     const t = (await db.query("select question, kind, evidence, source_ids from recipient_turn where id = $1 and legacy_id = $2", [turnId, legacyId])).rows[0];

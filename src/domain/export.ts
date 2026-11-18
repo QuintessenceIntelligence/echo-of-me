@@ -6,6 +6,7 @@ import { requireMfa, type AuthContext } from "./auth";
 import { EXTENSION, type AllowedMime } from "./media-type";
 import { ownedLegacy } from "./onboarding";
 import { IntegrityError, transcriptProvenance } from "./vault";
+import { enforceLimit } from "./limits";
 
 /**
  * Full export of a legacy in open formats (start of AC-12): one ZIP containing `legacy.json` (all text,
@@ -40,11 +41,12 @@ export interface ExportManifest {
 const iso = (d: Date | string | null) => (d ? new Date(d).toISOString() : null);
 
 export async function exportLegacy(ctx: AuthContext, legacyId: string): Promise<ExportResult> {
-  // Authorise (and audit a refusal) before reading anything.
+  // Authorise (and audit a refusal) before reading anything; then count the attempt (exports are heavy).
   await guarded(ctx, "legacy.export", { legacyId, targetType: "legacy", targetId: legacyId }, async (db) => {
     requireMfa(ctx);
     await ownedLegacy(db, ctx, legacyId);
   });
+  await enforceLimit(ctx, "export", legacyId);
 
   const data = await withActor(ctx.accountId, async (db) => {
     await ownedLegacy(db, ctx, legacyId);

@@ -54,6 +54,7 @@ const ACTION_LABEL: Record<string, string> = {
   "legacy.delete": "Legacy deleted",
   "prompt.dismiss": "Prompt hidden",
   "prompt.restore": "Prompt shown again",
+  "rate_limit.refused": "Paused for a while: too many attempts in a short time",
 };
 
 const REASON_LABEL: Record<string, string> = {
@@ -78,6 +79,7 @@ const REASON_LABEL: Record<string, string> = {
   legacy_locked: "legacy not open for changes",
   storage_full: "storage limit reached",
   answers_off: "answers are switched off",
+  rate_limited: "too many attempts in a short time",
   legacy_not_active: "legacy not active",
 };
 

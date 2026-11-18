@@ -13,6 +13,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { setLimitForTests } from "../src/domain/limits";
 import { createLegacy } from "../src/domain/onboarding";
 import { rehearse, type Answer } from "../src/domain/rehearsal";
 import { addMedia, createMemory, recordMachineTranscript, setSensitivity } from "../src/domain/vault";
@@ -21,6 +22,8 @@ import { makePerson, rawSystem, useFreshDatabase } from "./helpers";
 
 const pool = useFreshDatabase();
 useTempBlobStore();
+// Each set asks more questions from one account than the real per-account limit allows (ADR-012).
+setLimitForTests("ask", { max: 10_000, windowSeconds: 600 });
 
 interface EvalItem { key: string; kind: "memory" | "value_statement"; title: string; body: string; approve?: boolean; sensitive?: boolean; machine_transcript?: string }
 interface EvalQuestion { q: string; type: "direct" | "paraphrase" | "out_of_corpus" | "injection" | "identity" | "crisis" | "benign"; expect_items?: string[] }

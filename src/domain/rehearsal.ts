@@ -7,6 +7,7 @@ import { NotFoundError, PolicyError, ValidationError } from "./errors";
 import { ownedLegacy } from "./onboarding";
 import { HELP_RESOURCES, isCrisis, isIdentityQuestion } from "./safety";
 import { insertMemoryTx, parseMemoryInput, type Provenance } from "./vault";
+import { enforceLimit } from "./limits";
 
 /**
  * Module 03/04 foundation: grounded answers WITHOUT a language model (slice 3a, ADR-007a).
@@ -307,6 +308,7 @@ export async function rehearse(ctx: AuthContext, legacyId: string, rawQuestion: 
   const parsed = Question.safeParse(rawQuestion);
   if (!parsed.success) throw new ValidationError(parsed.error.issues[0].message);
   const question = parsed.data;
+  await enforceLimit(ctx, "ask", legacyId);
   return guarded(ctx, "answer.rehearse", { legacyId, targetType: "legacy", targetId: legacyId }, async (db) => {
     await ownedLegacy(db, ctx, legacyId);
     await assertConsents(db, ctx, ["ai_processing"]);
@@ -327,6 +329,7 @@ export async function recipientAsk(ctx: AuthContext, legacyId: string, rawQuesti
   if (!parsed.success) throw new ValidationError(parsed.error.issues[0].message);
   const question = parsed.data;
   if (!UUID.safeParse(legacyId).success) throw new NotFoundError("legacy");
+  await enforceLimit(ctx, "recipient_ask", legacyId);
   return guarded(ctx, "answer.recipient", { legacyId, targetType: "legacy", targetId: legacyId }, async (db) => {
     const m = (await db.query("select legacy_title, author_display_name from app.my_recipient_memberships() where legacy_id = $1", [legacyId])).rows[0];
     if (!m || !(await db.query("select app.is_member($1) as ok", [legacyId])).rows[0].ok) throw new NotFoundError("legacy");

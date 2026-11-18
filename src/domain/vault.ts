@@ -9,6 +9,7 @@ import { DomainError, NotFoundError, PolicyError, ValidationError } from "./erro
 import { kindOf, MAX_BYTES, sniffMime, type AllowedMime } from "./media-type";
 import { ownedLegacy, parse } from "./onboarding";
 import { suggestThemes } from "./suggest";
+import { enforceLimit } from "./limits";
 
 /**
  * Module 02, Memory & Wisdom Vault: capture and provenance (vertical slice 2, ADR-006).
@@ -306,6 +307,7 @@ export async function addMedia(
   input: AddMediaInput,
 ): Promise<{ assetId: string; mimeType: AllowedMime; sha256: string; byteSize: number }> {
   if (!Buffer.isBuffer(input.bytes) || input.bytes.length === 0) throw new ValidationError("The file is empty.");
+  await enforceLimit(ctx, "upload", legacyId);
   if (input.capture !== "upload" && input.capture !== "browser_recording") throw new ValidationError("Unknown capture method.");
   const mime = sniffMime(input.bytes);
   if (!mime) {

@@ -5,6 +5,7 @@ import { audit, guarded } from "./audit";
 import { requireMfa, type AuthContext } from "./auth";
 import { assertConsents, consentStatuses, currentDocuments, REQUIRED_AUTHOR_CONSENTS, type ConsentStatus } from "./consent";
 import { NotFoundError, PolicyError, ValidationError } from "./errors";
+import { enforceLimit } from "./limits";
 
 // ------------------------------------------------------------------ shared helpers
 
@@ -197,6 +198,7 @@ export async function inviteRecipient(
   legacyId: string,
   recipientId: string,
 ): Promise<{ invitationId: string; token: string; expiresAt: Date }> {
+  await enforceLimit(ctx, "invite", legacyId);
   return guarded(ctx, "invitation.create", { legacyId, targetType: "recipient", targetId: recipientId }, async (db) => {
     requireMfa(ctx);
     await ownedLegacy(db, ctx, legacyId);

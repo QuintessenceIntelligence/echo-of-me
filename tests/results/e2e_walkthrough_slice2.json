@@ -24,7 +24,7 @@
     {
       "step": "Recording served byte-identical to its stored fingerprint (AC-03)",
       "passed": true,
-      "note": "28108 bytes, audio/webm"
+      "note": "29074 bytes, audio/webm"
     },
     {
       "step": "Uploaded WAV returned byte-identical (AC-03)",
