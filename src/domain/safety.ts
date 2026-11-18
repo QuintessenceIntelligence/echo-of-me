@@ -25,6 +25,10 @@ const IDENTITY = [
   /\bis\s+(this|that)\s+(really\s+)?(you|my\s+(dad|mum|mom|father|mother|parent))\b/i,
   /\bwho\s+(are|am)\s+(you|i\s+talking\s+to)\b/i,
   /\bwhat\s+are\s+you\b/i,
+  // Requests to role-play the author (evaluation finding E-02): answered with the identity response.
+  /\b(pretend|act|speak|talk|answer|respond|reply|role[\s-]?play)\b[^.?!]{0,30}\b(you'?re|you\s+are|to\s+be|as|like)\s+(my\s+|the\s+)?(dad|daddy|mum|mummy|mom|mommy|father|mother|parent|papa|mama|gran|granny|grandma|grandpa|him|her)\b/i,
+  /\byou\s+are\s+now\s+(my\s+)?(dad|daddy|mum|mom|father|mother|parent|him|her)\b/i,
+  /\b(be|become)\s+my\s+(dad|daddy|mum|mom|father|mother|parent)\b/i,
 ];
 
 export function isCrisis(question: string): boolean {

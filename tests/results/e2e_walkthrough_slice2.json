@@ -24,7 +24,7 @@
     {
       "step": "Recording served byte-identical to its stored fingerprint (AC-03)",
       "passed": true,
-      "note": "29074 bytes, audio/webm"
+      "note": "30354 bytes, audio/webm"
     },
     {
       "step": "Uploaded WAV returned byte-identical (AC-03)",
@@ -89,7 +89,7 @@
     {
       "step": "Export ZIP is valid; every original matches its fingerprint; recording and WAV byte-identical (AC-03, AC-12 start)",
       "passed": true,
-      "note": "echo-of-me-export-2026-11-17.zip, 5 entries"
+      "note": "echo-of-me-export-2026-11-18.zip, 5 entries"
     },
     {
       "step": "Export holds both versions, transcript provenance, tag decisions and the intended recipient",

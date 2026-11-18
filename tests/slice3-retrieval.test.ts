@@ -128,7 +128,10 @@ describe("Evidence classes and citations (AC-06, AC-07)", () => {
   it("classification rules are explicit", () => {
     expect(classify([])).toBe("E3");
     expect(classify([{ source_type: "memory_version", matched: 2, query_terms: 3 }])).toBe("E1");
-    expect(classify([{ source_type: "memory_version", matched: 1, query_terms: 1 }])).toBe("E1");
+    expect(classify([{ source_type: "memory_version", matched: 1, query_terms: 1, title_matched: 1 }])).toBe("E1");
+    expect(classify([{ source_type: "memory_version", matched: 1, query_terms: 1, title_matched: 0 }])).toBe("E2"); // one word in the body: related, not direct
+    expect(classify([{ source_type: "memory_version", matched: 1, query_terms: 2, title_matched: 0 }])).toBe("E3"); // one everyday word of two (E-01)
+    expect(classify([{ source_type: "memory_version", matched: 1, query_terms: 2, title_matched: 1 }])).toBe("E2");
     expect(classify([{ source_type: "media_asset", matched: 2, query_terms: 2 }])).toBe("E2"); // a title match on a recording is not a direct answer
     expect(classify([{ source_type: "memory_version", matched: 1, query_terms: 3 }])).toBe("E3");
   });

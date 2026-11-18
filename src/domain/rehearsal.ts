@@ -85,17 +85,34 @@ interface Row {
   approved_at: Date;
   version_no: number | null;
   matched: number;
+  title_matched: number;
   query_terms: number;
 }
 
-export function classify(rows: Pick<Row, "source_type" | "matched" | "query_terms">[]): EvidenceClass {
-  const textual = rows.filter((r) => r.source_type !== "media_asset");
-  const direct = textual.find((r) => {
-    const need = Math.min(THRESHOLDS.directMinTerms, r.query_terms);
-    return r.matched >= need && r.matched / r.query_terms >= THRESHOLDS.directCoverage;
-  });
-  if (direct) return "E1";
-  if (rows.some((r) => r.matched >= 2 || r.matched / r.query_terms >= THRESHOLDS.relatedCoverage)) return "E2";
+/**
+ * Evidence for one source. One shared topic word is weak evidence unless it is in the item's title:
+ * everyday words ("move", "choose") in the body of an unrelated memory must not count as related
+ * (evaluation finding E-01).
+ */
+export function isRelated(r: Pick<Row, "matched" | "query_terms"> & { title_matched?: number }): boolean {
+  return (
+    r.matched >= 2 ||
+    ((r.title_matched ?? 0) >= 1 && r.matched / r.query_terms >= THRESHOLDS.relatedCoverage) ||
+    // A one-topic question ("tell me about tomatoes") mentioned in the body is related, never direct.
+    (r.query_terms === 1 && r.matched === 1)
+  );
+}
+
+/** Direct (E1) needs most of the question's topic words, and more than one shared word unless it is in the title. */
+export function isDirect(r: Pick<Row, "source_type" | "matched" | "query_terms"> & { title_matched?: number }): boolean {
+  if (r.source_type === "media_asset") return false;
+  const need = Math.min(THRESHOLDS.directMinTerms, r.query_terms);
+  return r.matched >= need && r.matched / r.query_terms >= THRESHOLDS.directCoverage && (r.matched >= 2 || (r.title_matched ?? 0) >= 1);
+}
+
+export function classify(rows: (Pick<Row, "source_type" | "matched" | "query_terms"> & { title_matched?: number })[]): EvidenceClass {
+  if (rows.some(isDirect)) return "E1";
+  if (rows.some(isRelated)) return "E2";
   return "E3";
 }
 
@@ -253,7 +270,7 @@ export async function rehearse(ctx: AuthContext, legacyId: string, rawQuestion: 
         turnId,
       };
     }
-    const relevant = evidence === "E1" ? rows.filter((r) => r.matched / r.query_terms >= THRESHOLDS.relatedCoverage || r.matched >= 2) : rows;
+    const relevant = rows.filter((r) => isRelated(r) || isDirect(r));
     const passages = pickPassages(relevant, THRESHOLDS.maxPassages);
     const turnId = await recordTurn(db, ctx, legacyId, question, "grounded", evidence, passages.map((p) => p.sourceId));
     return {
@@ -295,7 +312,7 @@ async function loadRules(db: Queryable, legacyId: string, terms: string[]): Prom
 async function citableRowsForItem(db: Queryable, legacyId: string, memoryId: string): Promise<Row[]> {
   const { rows } = await db.query(
     `select source_type, source_id, memory_id, kind, provenance, title, text as quote, coalesce(length(text), 0) as full_length,
-            media_asset_id, sensitivity, approved_at, version_no, 0 as matched, 0 as query_terms
+            media_asset_id, sensitivity, approved_at, version_no, 0 as matched, 0 as title_matched, 0 as query_terms
        from citable_source
       where legacy_id = $1 and memory_id = $2 and source_type in ('memory_version', 'media_asset')
       order by case source_type when 'memory_version' then 0 else 1 end, source_id`,

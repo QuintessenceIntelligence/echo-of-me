@@ -35,6 +35,8 @@ def step(name, ok=True, note=""):
 
 
 def axe(page, label):
+    page.wait_for_load_state("networkidle")
+    page.wait_for_function("document.title.length > 0")
     page.add_script_tag(path=str(AXE))
     r = page.evaluate(
         """async () => (await axe.run(document, {runOnly: {type: 'tag', values: ['wcag2a','wcag2aa','wcag21aa','wcag22aa']}}))
