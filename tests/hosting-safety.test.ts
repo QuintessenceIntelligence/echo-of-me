@@ -116,3 +116,24 @@ describe("Content-Security-Policy", () => {
     expect(buildCsp("x", { dev: true, hosted: false })).toContain("'unsafe-eval'");
   });
 });
+
+describe("Deletion never half-happens when file storage is unavailable", () => {
+  it("refuses before touching the database", async () => {
+    const { setBlobStore } = await import("../src/server/storage");
+    const { deleteLegacy } = await import("../src/domain/deletion");
+    const { createLegacy } = await import("../src/domain/onboarding");
+    setPool(ownerPool());
+    const a = await makePerson("noStore", ["terms_of_service", "privacy_notice"]);
+    const { legacyId } = await createLegacy(a, { title: "Keep me", authorDisplayName: "K" });
+    setBlobStore(undefined);
+    const prev = process.env.ECHO_HOSTED;
+    process.env.ECHO_HOSTED = "1";
+    try {
+      await expect(deleteLegacy(a, legacyId, "Keep me")).rejects.toThrow(/storage/);
+    } finally {
+      if (prev === undefined) delete process.env.ECHO_HOSTED; else process.env.ECHO_HOSTED = prev;
+    }
+    const left = await ownerPool().query("select 1 from legacy where id = $1", [legacyId]);
+    expect(left.rowCount).toBe(1);
+  });
+});

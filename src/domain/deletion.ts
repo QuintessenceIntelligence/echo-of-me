@@ -16,6 +16,8 @@ import { ownedLegacy } from "./onboarding";
  * for doc 05 ⚖.
  */
 export async function deleteLegacy(ctx: AuthContext, legacyId: string, confirmTitle: string): Promise<{ items: number; files: number }> {
+  // Resolve file storage first: if it is not available, fail before anything is deleted.
+  const store = getBlobStore();
   const result = await guarded(ctx, "legacy.delete", { legacyId, targetType: "legacy", targetId: legacyId }, async (db) => {
     requireMfa(ctx);
     const l = await ownedLegacy(db, ctx, legacyId);
@@ -40,7 +42,6 @@ export async function deleteLegacy(ctx: AuthContext, legacyId: string, confirmTi
     });
     return { items: counts.items as number, files: counts.files as number, keys };
   });
-  const store = getBlobStore();
   for (const k of result.keys) await store.delete(k).catch((err) => console.error("blob delete failed", k, err));
   await store.removeLegacy(legacyId).catch((err) => console.error("legacy folder delete failed", legacyId, err));
   return { items: result.items, files: result.files };

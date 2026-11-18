@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { withActor, type Queryable } from "../server/db";
-import { getBlobStore, sha256Hex } from "../server/storage";
+import { getBlobStore, sha256Hex, type BlobStore } from "../server/storage";
 import { audit, guarded } from "./audit";
 import { requireMfa, type AuthContext } from "./auth";
 import { assertConsents } from "./consent";
@@ -259,6 +259,7 @@ export async function setAudience(ctx: AuthContext, legacyId: string, memoryId: 
 
 /** Permanent deletion of an item, all its versions, recordings, transcripts and tags. Needs MFA. */
 export async function deleteMemory(ctx: AuthContext, legacyId: string, memoryId: string): Promise<{ deletedMedia: number }> {
+  const store = getBlobStore(); // fail before deleting anything if file storage is unavailable
   const keys = await guarded(ctx, "memory.delete", { legacyId, targetType: "memory", targetId: memoryId }, async (db) => {
     requireMfa(ctx);
     await ownedLegacy(db, ctx, legacyId);
@@ -268,12 +269,11 @@ export async function deleteMemory(ctx: AuthContext, legacyId: string, memoryId:
     await audit(db, ctx, { action: "memory.delete", legacyId, targetType: "memory", targetId: memoryId, detail: { media: media.length } });
     return media;
   });
-  await removeBlobs(keys);
+  await removeBlobs(store, keys);
   return { deletedMedia: keys.length };
 }
 
-async function removeBlobs(keys: string[]) {
-  const store = getBlobStore();
+async function removeBlobs(store: BlobStore, keys: string[]) {
   for (const k of keys) {
     // The database rows are already gone; a failure here leaves an unreachable file, never visible data.
     await store.delete(k).catch((err) => console.error("blob delete failed", k, err));
@@ -390,6 +390,7 @@ export async function readMedia(
 
 export async function deleteMedia(ctx: AuthContext, legacyId: string, assetId: string): Promise<void> {
   if (!UUID.safeParse(assetId).success) throw new NotFoundError("recording");
+  const store = getBlobStore();
   const key = await guarded(ctx, "media.delete", { legacyId, targetType: "media", targetId: assetId }, async (db) => {
     await capturableLegacy(db, ctx, legacyId);
     const { rows } = await db.query("select storage_key, memory_id from media_asset where id = $1 and legacy_id = $2", [assetId, legacyId]);
@@ -401,7 +402,7 @@ export async function deleteMedia(ctx: AuthContext, legacyId: string, assetId: s
     await audit(db, ctx, { action: "media.delete", legacyId, targetType: "media", targetId: assetId, detail: { memory: item.id } });
     return rows[0].storage_key as string;
   });
-  await removeBlobs([key]);
+  await removeBlobs(store, [key]);
 }
 
 // ------------------------------------------------------------------ transcripts (P6 → P3)
