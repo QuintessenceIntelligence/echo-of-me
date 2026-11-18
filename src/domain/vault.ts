@@ -113,27 +113,37 @@ export async function createMemory(
   legacyId: string,
   input: z.input<typeof MemoryInput>,
 ): Promise<{ memoryId: string }> {
+  const p = parseMemoryInput(input);
+  return guarded(ctx, "memory.create", { legacyId }, (db) => insertMemoryTx(db, ctx, legacyId, p));
+}
+
+export type MemoryInputParsed = z.output<typeof MemoryInput>;
+
+export function parseMemoryInput(input: z.input<typeof MemoryInput>): MemoryInputParsed {
   const p = parse(MemoryInput, input);
   if (p.approve && !p.body.trim()) {
     throw new ValidationError("Add some words before approving, or save it as a draft and add a recording.", { body: "Empty." });
   }
-  return guarded(ctx, "memory.create", { legacyId }, async (db) => {
-    await capturableLegacy(db, ctx, legacyId);
-    const memoryId = randomUUID();
-    await db.query(
-      `insert into memory_item (id, legacy_id, kind, sensitivity, created_by, approval, approved_version, approved_at)
-       values ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [memoryId, legacyId, p.kind, p.sensitivity, ctx.accountId, p.approve ? "approved" : "draft", p.approve ? 1 : null, p.approve ? new Date() : null],
-    );
-    await db.query(
-      `insert into memory_version (memory_id, legacy_id, version_no, title, body, occurred_label, created_by)
-       values ($1, $2, 1, $3, $4, $5, $6)`,
-      [memoryId, legacyId, p.title, p.body, p.occurredLabel, ctx.accountId],
-    );
-    await audit(db, ctx, { action: "memory.create", legacyId, targetType: "memory", targetId: memoryId, detail: { kind: p.kind, version: 1 } });
-    if (p.approve) await audit(db, ctx, { action: "memory.approve", legacyId, targetType: "memory", targetId: memoryId, detail: { version: 1 } });
-    return { memoryId };
-  });
+  return p;
+}
+
+/** Creates an item and its first version inside the caller's transaction (used by rehearsal corrections too). */
+export async function insertMemoryTx(db: Queryable, ctx: AuthContext, legacyId: string, p: MemoryInputParsed): Promise<{ memoryId: string }> {
+  await capturableLegacy(db, ctx, legacyId);
+  const memoryId = randomUUID();
+  await db.query(
+    `insert into memory_item (id, legacy_id, kind, sensitivity, created_by, approval, approved_version, approved_at)
+     values ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [memoryId, legacyId, p.kind, p.sensitivity, ctx.accountId, p.approve ? "approved" : "draft", p.approve ? 1 : null, p.approve ? new Date() : null],
+  );
+  await db.query(
+    `insert into memory_version (memory_id, legacy_id, version_no, title, body, occurred_label, created_by)
+     values ($1, $2, 1, $3, $4, $5, $6)`,
+    [memoryId, legacyId, p.title, p.body, p.occurredLabel, ctx.accountId],
+  );
+  await audit(db, ctx, { action: "memory.create", legacyId, targetType: "memory", targetId: memoryId, detail: { kind: p.kind, version: 1 } });
+  if (p.approve) await audit(db, ctx, { action: "memory.approve", legacyId, targetType: "memory", targetId: memoryId, detail: { version: 1 } });
+  return { memoryId };
 }
 
 const EditInput = z.object({

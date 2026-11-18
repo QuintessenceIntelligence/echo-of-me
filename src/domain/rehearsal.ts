@@ -3,10 +3,10 @@ import { withActor, type Queryable } from "../server/db";
 import { audit, guarded } from "./audit";
 import type { AuthContext } from "./auth";
 import { assertConsents } from "./consent";
-import { ValidationError } from "./errors";
+import { NotFoundError, ValidationError } from "./errors";
 import { ownedLegacy } from "./onboarding";
 import { HELP_RESOURCES, isCrisis, isIdentityQuestion } from "./safety";
-import type { Provenance } from "./vault";
+import { insertMemoryTx, parseMemoryInput, type Provenance } from "./vault";
 
 /**
  * Module 03/04 foundation: grounded answers WITHOUT a language model (slice 3a, ADR-007a).
@@ -48,6 +48,10 @@ export interface Answer {
   passages: Passage[];
   adjacent: { memoryId: string; title: string; kind: string }[];
   resources: { name: string; contact: string; note: string }[];
+  /** Author rules that shaped this answer (slice 4). */
+  rules: { pinnedAt: string | null; pinRuleId: string | null; suppressed: number };
+  /** True when the author can pin, suppress or answer this question themselves. */
+  teachable: boolean;
   turnId: string;
 }
 
@@ -60,6 +64,7 @@ export const THRESHOLDS = {
   maxPassages: 3,
 } as const;
 
+const UUID = z.uuid();
 const Question = z.string().trim().min(1, "Please type a question.").max(500, "Please keep questions under 500 characters.");
 
 export function disclosureFor(authorName: string): string {
@@ -165,7 +170,14 @@ export async function rehearse(ctx: AuthContext, legacyId: string, rawQuestion: 
     await assertConsents(db, ctx, ["ai_processing"]);
     const author = (await db.query("select author_display_name from legacy where id = $1", [legacyId])).rows[0].author_display_name as string;
     const disclosure = disclosureFor(author);
-    const base = { disclosure, passages: [] as Passage[], adjacent: [] as Answer["adjacent"], resources: [] as Answer["resources"] };
+    const base = {
+      disclosure,
+      passages: [] as Passage[],
+      adjacent: [] as Answer["adjacent"],
+      resources: [] as Answer["resources"],
+      rules: { pinnedAt: null, pinRuleId: null, suppressed: 0 } as Answer["rules"],
+      teachable: false,
+    };
 
     if (isCrisis(question)) {
       const turnId = await recordTurn(db, ctx, legacyId, null, "safety", null, []);
@@ -197,14 +209,38 @@ export async function rehearse(ctx: AuthContext, legacyId: string, rawQuestion: 
       return { ...base, kind: "empty_question", evidence: null, lead: "Please ask about a topic, a person or a time, for example “What did you learn from failing?”.", turnId };
     }
 
-    const rows = (await db.query("select * from app.search_citable($1, $2, 12)", [legacyId, question])).rows as Row[];
+    const rules = await loadRules(db, legacyId, terms);
+    const noRules = { pinnedAt: null, pinRuleId: null, suppressed: 0 };
+
+    // A pinned item is the author's chosen answer: served as E1, from citable_source only, so a pin on
+    // an item that is no longer approved is silently inactive (never serves unapproved words).
+    if (rules.pin && !rules.suppressed.has(rules.pin.memoryId)) {
+      const pinned = await citableRowsForItem(db, legacyId, rules.pin.memoryId);
+      if (pinned.length) {
+        const passages = pinned.map(toPassage);
+        const turnId = await recordTurn(db, ctx, legacyId, question, "grounded", "E1", passages.map((p) => p.sourceId));
+        return {
+          ...base,
+          kind: "grounded",
+          evidence: "E1",
+          lead: `In ${author}'s own words:`,
+          passages,
+          rules: { pinnedAt: rules.pin.createdAt, pinRuleId: rules.pin.id, suppressed: rules.suppressed.size },
+          teachable: true,
+          turnId,
+        };
+      }
+    }
+
+    const all = (await db.query("select * from app.search_citable($1, $2, 12)", [legacyId, question])).rows as Row[];
+    const rows = all.filter((r) => !rules.suppressed.has(r.memory_id));
+    const appliedRules = { ...noRules, suppressed: new Set(all.filter((r) => rules.suppressed.has(r.memory_id)).map((r) => r.memory_id)).size };
     const evidence = classify(rows);
     if (evidence === "E3") {
-      const adjacent = (await db.query("select memory_id, title, kind from app.adjacent_memories($1, 3)", [legacyId])).rows.map((r) => ({
-        memoryId: r.memory_id as string,
-        title: r.title as string,
-        kind: r.kind as string,
-      }));
+      const adjacent = (await db.query("select memory_id, title, kind from app.adjacent_memories($1, 4)", [legacyId])).rows
+        .filter((r) => !rules.suppressed.has(r.memory_id))
+        .slice(0, 3)
+        .map((r) => ({ memoryId: r.memory_id as string, title: r.title as string, kind: r.kind as string }));
       const turnId = await recordTurn(db, ctx, legacyId, question, "not_recorded", "E3", []);
       return {
         ...base,
@@ -212,6 +248,8 @@ export async function rehearse(ctx: AuthContext, legacyId: string, rawQuestion: 
         evidence,
         lead: `I don't have anything ${author} recorded about that.` + (adjacent.length ? ` Here are some things ${author} did record.` : ""),
         adjacent,
+        rules: appliedRules,
+        teachable: true,
         turnId,
       };
     }
@@ -227,8 +265,182 @@ export async function rehearse(ctx: AuthContext, legacyId: string, rawQuestion: 
           ? `In ${author}'s own words:`
           : `${author} did not record anything that answers this directly. Based on what they recorded, these may be related:`,
       passages,
+      rules: appliedRules,
+      teachable: true,
       turnId,
     };
+  });
+}
+
+// ------------------------------------------------------------------ author rules (slice 4, AC-11)
+
+interface Rules {
+  pin: { id: string; memoryId: string; createdAt: string } | null;
+  suppressed: Set<string>;
+}
+
+async function loadRules(db: Queryable, legacyId: string, terms: string[]): Promise<Rules> {
+  const { rows } = await db.query(
+    "select id, memory_id, action, created_at from answer_rule where legacy_id = $1 and terms = $2::text[]",
+    [legacyId, terms],
+  );
+  const pin = rows.find((r) => r.action === "pin");
+  return {
+    pin: pin ? { id: pin.id, memoryId: pin.memory_id, createdAt: new Date(pin.created_at).toISOString() } : null,
+    suppressed: new Set(rows.filter((r) => r.action === "suppress").map((r) => r.memory_id as string)),
+  };
+}
+
+/** The approved words (and original recordings) of one item, read through the citable view only. */
+async function citableRowsForItem(db: Queryable, legacyId: string, memoryId: string): Promise<Row[]> {
+  const { rows } = await db.query(
+    `select source_type, source_id, memory_id, kind, provenance, title, text as quote, coalesce(length(text), 0) as full_length,
+            media_asset_id, sensitivity, approved_at, version_no, 0 as matched, 0 as query_terms
+       from citable_source
+      where legacy_id = $1 and memory_id = $2 and source_type in ('memory_version', 'media_asset')
+      order by case source_type when 'memory_version' then 0 else 1 end, source_id`,
+    [legacyId, memoryId],
+  );
+  return rows as Row[];
+}
+
+/** Reads one of the author's own rehearsal questions that can be taught (not safety or identity). */
+async function teachableTurn(db: Queryable, legacyId: string, turnId: string): Promise<{ question: string; terms: string[] }> {
+  if (!UUID.safeParse(turnId).success) throw new NotFoundError("question");
+  const t = (await db.query(
+    "select question, kind from rehearsal_turn where id = $1 and legacy_id = $2",
+    [turnId, legacyId],
+  )).rows[0];
+  if (!t) throw new NotFoundError("question");
+  if (!t.question || (t.kind !== "grounded" && t.kind !== "not_recorded")) {
+    throw new ValidationError("Answers to this kind of question cannot be changed.");
+  }
+  const terms = (await db.query("select app.question_terms($1) as t", [t.question])).rows[0].t as string[];
+  if (!terms.length) throw new ValidationError("This question has no topic words to attach an answer to.");
+  return { question: t.question, terms };
+}
+
+async function assertCitableItem(db: Queryable, legacyId: string, memoryId: string) {
+  if (!UUID.safeParse(memoryId).success) throw new NotFoundError("memory");
+  const exists = (await db.query("select 1 from memory_item where id = $1 and legacy_id = $2", [memoryId, legacyId])).rowCount;
+  if (!exists) throw new NotFoundError("memory");
+  const citable = (await db.query(
+    "select 1 from citable_source where legacy_id = $1 and memory_id = $2 and source_type = 'memory_version'",
+    [legacyId, memoryId],
+  )).rowCount;
+  if (!citable) throw new ValidationError("Only an approved item can be pinned as an answer. Approve it first.");
+}
+
+async function insertPin(db: Queryable, ctx: AuthContext, legacyId: string, turn: { question: string; terms: string[] }, memoryId: string, via: string) {
+  // One pin per question: a new pin replaces the old one, and un-suppresses the item for this question.
+  await db.query("delete from answer_rule where legacy_id = $1 and terms = $2::text[] and (action = 'pin' or memory_id = $3)", [legacyId, turn.terms, memoryId]);
+  const { rows } = await db.query(
+    `insert into answer_rule (legacy_id, memory_id, question, terms, action, created_by)
+     values ($1, $2, $3, $4::text[], 'pin', $5) returning id`,
+    [legacyId, memoryId, turn.question, turn.terms, ctx.accountId],
+  );
+  await audit(db, ctx, { action: "answer.pin", legacyId, targetType: "answer_rule", targetId: rows[0].id, detail: { memory: memoryId, terms: turn.terms.length, via } });
+  return rows[0].id as string;
+}
+
+/** "This is the answer": pin an approved item to this question (and to the same topic words in future). */
+export async function pinAnswer(ctx: AuthContext, legacyId: string, turnId: string, memoryId: string): Promise<{ ruleId: string }> {
+  return guarded(ctx, "answer.pin", { legacyId, targetType: "rehearsal_turn", targetId: turnId }, async (db) => {
+    await ownedLegacy(db, ctx, legacyId);
+    const turn = await teachableTurn(db, legacyId, turnId);
+    await assertCitableItem(db, legacyId, memoryId);
+    return { ruleId: await insertPin(db, ctx, legacyId, turn, memoryId, "existing_item") };
+  });
+}
+
+/** "Don't use this here": never use this item for this question (other questions are unaffected). */
+export async function suppressForQuestion(ctx: AuthContext, legacyId: string, turnId: string, memoryId: string): Promise<{ ruleId: string }> {
+  return guarded(ctx, "answer.suppress", { legacyId, targetType: "rehearsal_turn", targetId: turnId }, async (db) => {
+    await ownedLegacy(db, ctx, legacyId);
+    const turn = await teachableTurn(db, legacyId, turnId);
+    if (!UUID.safeParse(memoryId).success || !(await db.query("select 1 from memory_item where id = $1 and legacy_id = $2", [memoryId, legacyId])).rowCount) {
+      throw new NotFoundError("memory");
+    }
+    await db.query("delete from answer_rule where legacy_id = $1 and terms = $2::text[] and memory_id = $3", [legacyId, turn.terms, memoryId]);
+    const { rows } = await db.query(
+      `insert into answer_rule (legacy_id, memory_id, question, terms, action, created_by)
+       values ($1, $2, $3, $4::text[], 'suppress', $5) returning id`,
+      [legacyId, memoryId, turn.question, turn.terms, ctx.accountId],
+    );
+    await audit(db, ctx, { action: "answer.suppress", legacyId, targetType: "answer_rule", targetId: rows[0].id, detail: { memory: memoryId, terms: turn.terms.length } });
+    return { ruleId: rows[0].id as string };
+  });
+}
+
+const CorrectionInput = z.object({
+  kind: z.enum(["memory", "value_statement"]).optional().default("value_statement"),
+  title: z.string().trim().max(160).optional(),
+  body: z.string().trim().min(1, "Please write your answer.").max(20000),
+});
+
+/**
+ * "Answer it yourself": the author writes what they would say. This becomes a new approved item in their
+ * own words (P2) and is pinned to the question, in one transaction. No AI is involved.
+ */
+export async function answerYourself(
+  ctx: AuthContext,
+  legacyId: string,
+  turnId: string,
+  input: z.input<typeof CorrectionInput>,
+): Promise<{ memoryId: string; ruleId: string }> {
+  const p = CorrectionInput.safeParse(input);
+  if (!p.success) throw new ValidationError(p.error.issues[0].message);
+  return guarded(ctx, "answer.correct", { legacyId, targetType: "rehearsal_turn", targetId: turnId }, async (db) => {
+    await ownedLegacy(db, ctx, legacyId);
+    const turn = await teachableTurn(db, legacyId, turnId);
+    const title = (p.data.title || turn.question).slice(0, 160);
+    const parsed = parseMemoryInput({ kind: p.data.kind, title, body: p.data.body, approve: true });
+    const { memoryId } = await insertMemoryTx(db, ctx, legacyId, parsed);
+    const ruleId = await insertPin(db, ctx, legacyId, turn, memoryId, "own_answer");
+    return { memoryId, ruleId };
+  });
+}
+
+export interface AnswerRuleView {
+  id: string;
+  action: "pin" | "suppress";
+  question: string;
+  memoryId: string;
+  title: string;
+  active: boolean;
+  createdAt: string;
+}
+
+export async function listAnswerRules(ctx: AuthContext, legacyId: string): Promise<AnswerRuleView[]> {
+  return withActor(ctx.accountId, async (db) => {
+    await ownedLegacy(db, ctx, legacyId);
+    const { rows } = await db.query(
+      `select r.id, r.action, r.question, r.memory_id, r.created_at, v.title, (i.approval = 'approved') as active
+         from answer_rule r
+         join memory_item i on i.id = r.memory_id
+         join memory_version v on v.memory_id = i.id and v.version_no = i.current_version
+        where r.legacy_id = $1 order by r.created_at desc`,
+      [legacyId],
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      action: r.action,
+      question: r.question,
+      memoryId: r.memory_id,
+      title: r.title,
+      active: r.action === "suppress" || r.active,
+      createdAt: new Date(r.created_at).toISOString(),
+    }));
+  });
+}
+
+export async function removeAnswerRule(ctx: AuthContext, legacyId: string, ruleId: string): Promise<void> {
+  if (!UUID.safeParse(ruleId).success) throw new NotFoundError("rule");
+  await guarded(ctx, "answer.rule_remove", { legacyId, targetType: "answer_rule", targetId: ruleId }, async (db) => {
+    await ownedLegacy(db, ctx, legacyId);
+    const res = await db.query("delete from answer_rule where id = $1 and legacy_id = $2", [ruleId, legacyId]);
+    if (!res.rowCount) throw new NotFoundError("rule");
+    await audit(db, ctx, { action: "answer.rule_remove", legacyId, targetType: "answer_rule", targetId: ruleId });
   });
 }
 
