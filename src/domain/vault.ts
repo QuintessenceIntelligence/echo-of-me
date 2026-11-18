@@ -375,6 +375,11 @@ export async function readMedia(
     ).catch(() => undefined);
     throw new IntegrityError();
   }
+  // A recipient playing a shared original is access to the author's content: logged for the author (AC-13).
+  await withActor(ctx.accountId, async (db) => {
+    const owner = (await db.query("select app.owns_legacy($1) as ok", [row.legacy_id])).rows[0].ok as boolean;
+    if (!owner) await audit(db, ctx, { action: "shared.media_play", legacyId: row.legacy_id, targetType: "media", targetId: assetId });
+  });
   return { bytes, mimeType: row.mime_type, sha256: row.sha256, filename: row.original_filename, legacyId: row.legacy_id };
 }
 

@@ -3,7 +3,7 @@ import { withActor, type Queryable } from "../server/db";
 import { audit, guarded } from "./audit";
 import type { AuthContext } from "./auth";
 import { assertConsents } from "./consent";
-import { NotFoundError, ValidationError } from "./errors";
+import { NotFoundError, PolicyError, ValidationError } from "./errors";
 import { ownedLegacy } from "./onboarding";
 import { HELP_RESOURCES, isCrisis, isIdentityQuestion } from "./safety";
 import { insertMemoryTx, parseMemoryInput, type Provenance } from "./vault";
@@ -174,6 +174,131 @@ async function recordTurn(
   return rows[0].id as string;
 }
 
+interface Composed {
+  answer: Omit<Answer, "turnId">;
+  record: { question: string | null; kind: Answer["kind"]; evidence: EvidenceClass | null; sourceIds: string[] };
+}
+
+/**
+ * The shared answer pipeline (author rehearsal and recipient questions). Runs inside the caller's
+ * RLS-scoped transaction, so the material it can see is exactly what the caller may see:
+ * the author sees all approved items, a recipient only approved items shared with them.
+ */
+async function composeAnswer(db: Queryable, legacyId: string, question: string, author: string): Promise<Composed> {
+  const disclosure = disclosureFor(author);
+  const base = {
+    disclosure,
+    passages: [] as Passage[],
+    adjacent: [] as Answer["adjacent"],
+    resources: [] as Answer["resources"],
+    rules: { pinnedAt: null, pinRuleId: null, suppressed: 0 } as Answer["rules"],
+    teachable: false,
+  };
+  const rec = (kind: Answer["kind"], evidence: EvidenceClass | null, passages: Passage[] = [], q: string | null = question) => ({
+    question: q,
+    kind,
+    evidence,
+    sourceIds: passages.map((p) => p.sourceId),
+  });
+
+  if (isCrisis(question)) {
+    return {
+      answer: {
+        ...base,
+        kind: "safety",
+        evidence: null,
+        lead:
+          "It sounds like you might be going through something very hard. This is not something Echo of Me can help with, " +
+          "and it will not answer in anyone's voice. Please reach out to a person now: someone you trust, or one of these free services.",
+        resources: [...HELP_RESOURCES],
+      },
+      record: rec("safety", null, [], null),
+    };
+  }
+  if (isIdentityQuestion(question)) {
+    return {
+      answer: {
+        ...base,
+        kind: "identity",
+        evidence: null,
+        lead: `No. I am Echo of Me, an AI interface. I am not ${author}, I cannot think or feel as them, and I never speak for them. I can only show you what ${author} chose to record and approve, and tell you when they did not record something.`,
+      },
+      record: rec("identity", null),
+    };
+  }
+
+  const terms = (await db.query("select app.question_terms($1) as t", [question])).rows[0].t as string[];
+  if (terms.length === 0) {
+    return {
+      answer: { ...base, kind: "empty_question", evidence: null, lead: "Please ask about a topic, a person or a time, for example “What did you learn from failing?”." },
+      record: rec("empty_question", null),
+    };
+  }
+
+  const rules = await loadRules(db, legacyId, terms);
+
+  // A pinned item is the author's chosen answer: served as E1, read through citable_source, so a pin on
+  // an item that is not approved (or not shared with this caller) is silently inactive.
+  if (rules.pin && !rules.suppressed.has(rules.pin.memoryId)) {
+    const pinned = await citableRowsForItem(db, legacyId, rules.pin.memoryId);
+    if (pinned.length) {
+      const passages = pinned.map(toPassage);
+      return {
+        answer: {
+          ...base,
+          kind: "grounded",
+          evidence: "E1",
+          lead: `In ${author}'s own words:`,
+          passages,
+          rules: { pinnedAt: rules.pin.createdAt, pinRuleId: rules.pin.id, suppressed: rules.suppressed.size },
+          teachable: true,
+        },
+        record: rec("grounded", "E1", passages),
+      };
+    }
+  }
+
+  const all = (await db.query("select * from app.search_citable($1, $2, 12)", [legacyId, question])).rows as Row[];
+  const rows = all.filter((r) => !rules.suppressed.has(r.memory_id));
+  const appliedRules = { pinnedAt: null, pinRuleId: null, suppressed: new Set(all.filter((r) => rules.suppressed.has(r.memory_id)).map((r) => r.memory_id)).size };
+  const evidence = classify(rows);
+  if (evidence === "E3") {
+    const adjacent = (await db.query("select memory_id, title, kind from app.adjacent_memories($1, 4)", [legacyId])).rows
+      .filter((r) => !rules.suppressed.has(r.memory_id))
+      .slice(0, 3)
+      .map((r) => ({ memoryId: r.memory_id as string, title: r.title as string, kind: r.kind as string }));
+    return {
+      answer: {
+        ...base,
+        kind: "not_recorded",
+        evidence,
+        lead: `I don't have anything ${author} recorded about that.` + (adjacent.length ? ` Here are some things ${author} did record.` : ""),
+        adjacent,
+        rules: appliedRules,
+        teachable: true,
+      },
+      record: rec("not_recorded", "E3"),
+    };
+  }
+  const relevant = rows.filter((r) => isRelated(r) || isDirect(r));
+  const passages = pickPassages(relevant, THRESHOLDS.maxPassages);
+  return {
+    answer: {
+      ...base,
+      kind: "grounded",
+      evidence,
+      lead:
+        evidence === "E1"
+          ? `In ${author}'s own words:`
+          : `${author} did not record anything that answers this directly. Based on what they recorded, these may be related:`,
+      passages,
+      rules: appliedRules,
+      teachable: true,
+    },
+    record: rec("grounded", evidence, passages),
+  };
+}
+
 /**
  * The author asks a question as a future recipient might (rehearsal, module 04). Needs the
  * AI-processing consent, whose text covers answering questions from approved material.
@@ -186,106 +311,43 @@ export async function rehearse(ctx: AuthContext, legacyId: string, rawQuestion: 
     await ownedLegacy(db, ctx, legacyId);
     await assertConsents(db, ctx, ["ai_processing"]);
     const author = (await db.query("select author_display_name from legacy where id = $1", [legacyId])).rows[0].author_display_name as string;
-    const disclosure = disclosureFor(author);
-    const base = {
-      disclosure,
-      passages: [] as Passage[],
-      adjacent: [] as Answer["adjacent"],
-      resources: [] as Answer["resources"],
-      rules: { pinnedAt: null, pinRuleId: null, suppressed: 0 } as Answer["rules"],
-      teachable: false,
-    };
+    const { answer, record } = await composeAnswer(db, legacyId, question, author);
+    const turnId = await recordTurn(db, ctx, legacyId, record.question, record.kind, record.evidence, record.sourceIds);
+    return { ...answer, turnId };
+  });
+}
 
-    if (isCrisis(question)) {
-      const turnId = await recordTurn(db, ctx, legacyId, null, "safety", null, []);
-      return {
-        ...base,
-        kind: "safety",
-        evidence: null,
-        lead:
-          "It sounds like you might be going through something very hard. This is not something Echo of Me can help with, " +
-          "and it will not answer in anyone's voice. Please reach out to a person now: someone you trust, or one of these free services.",
-        resources: [...HELP_RESOURCES],
-        turnId,
-      };
+/**
+ * A recipient asks about a legacy shared with them (slice 5). Same pipeline, but the database only lets
+ * them see approved items shared with them. Needs the author's AI-processing consent. The question is
+ * stored privately for the recipient; the author's activity log gets the fact and the source ids only.
+ */
+export async function recipientAsk(ctx: AuthContext, legacyId: string, rawQuestion: string): Promise<Answer> {
+  const parsed = Question.safeParse(rawQuestion);
+  if (!parsed.success) throw new ValidationError(parsed.error.issues[0].message);
+  const question = parsed.data;
+  if (!UUID.safeParse(legacyId).success) throw new NotFoundError("legacy");
+  return guarded(ctx, "answer.recipient", { legacyId, targetType: "legacy", targetId: legacyId }, async (db) => {
+    const m = (await db.query("select legacy_title, author_display_name from app.my_recipient_memberships() where legacy_id = $1", [legacyId])).rows[0];
+    if (!m || !(await db.query("select app.is_member($1) as ok", [legacyId])).rows[0].ok) throw new NotFoundError("legacy");
+    const author = m.author_display_name as string;
+    if (!(await db.query("select app.author_has_consent($1, 'ai_processing') as ok", [legacyId])).rows[0].ok) {
+      throw new PolicyError("answers_off", `${author} has not switched on answers to questions. You can still read what they shared with you.`);
     }
-    if (isIdentityQuestion(question)) {
-      const turnId = await recordTurn(db, ctx, legacyId, question, "identity", null, []);
-      return {
-        ...base,
-        kind: "identity",
-        evidence: null,
-        lead: `No. I am Echo of Me, an AI interface. I am not ${author}, I cannot think or feel as them, and I never speak for them. I can only show you what ${author} chose to record and approve, and tell you when they did not record something.`,
-        turnId,
-      };
-    }
-
-    const terms = (await db.query("select app.question_terms($1) as t", [question])).rows[0].t as string[];
-    if (terms.length === 0) {
-      const turnId = await recordTurn(db, ctx, legacyId, question, "empty_question", null, []);
-      return { ...base, kind: "empty_question", evidence: null, lead: "Please ask about a topic, a person or a time, for example “What did you learn from failing?”.", turnId };
-    }
-
-    const rules = await loadRules(db, legacyId, terms);
-    const noRules = { pinnedAt: null, pinRuleId: null, suppressed: 0 };
-
-    // A pinned item is the author's chosen answer: served as E1, from citable_source only, so a pin on
-    // an item that is no longer approved is silently inactive (never serves unapproved words).
-    if (rules.pin && !rules.suppressed.has(rules.pin.memoryId)) {
-      const pinned = await citableRowsForItem(db, legacyId, rules.pin.memoryId);
-      if (pinned.length) {
-        const passages = pinned.map(toPassage);
-        const turnId = await recordTurn(db, ctx, legacyId, question, "grounded", "E1", passages.map((p) => p.sourceId));
-        return {
-          ...base,
-          kind: "grounded",
-          evidence: "E1",
-          lead: `In ${author}'s own words:`,
-          passages,
-          rules: { pinnedAt: rules.pin.createdAt, pinRuleId: rules.pin.id, suppressed: rules.suppressed.size },
-          teachable: true,
-          turnId,
-        };
-      }
-    }
-
-    const all = (await db.query("select * from app.search_citable($1, $2, 12)", [legacyId, question])).rows as Row[];
-    const rows = all.filter((r) => !rules.suppressed.has(r.memory_id));
-    const appliedRules = { ...noRules, suppressed: new Set(all.filter((r) => rules.suppressed.has(r.memory_id)).map((r) => r.memory_id)).size };
-    const evidence = classify(rows);
-    if (evidence === "E3") {
-      const adjacent = (await db.query("select memory_id, title, kind from app.adjacent_memories($1, 4)", [legacyId])).rows
-        .filter((r) => !rules.suppressed.has(r.memory_id))
-        .slice(0, 3)
-        .map((r) => ({ memoryId: r.memory_id as string, title: r.title as string, kind: r.kind as string }));
-      const turnId = await recordTurn(db, ctx, legacyId, question, "not_recorded", "E3", []);
-      return {
-        ...base,
-        kind: "not_recorded",
-        evidence,
-        lead: `I don't have anything ${author} recorded about that.` + (adjacent.length ? ` Here are some things ${author} did record.` : ""),
-        adjacent,
-        rules: appliedRules,
-        teachable: true,
-        turnId,
-      };
-    }
-    const relevant = rows.filter((r) => isRelated(r) || isDirect(r));
-    const passages = pickPassages(relevant, THRESHOLDS.maxPassages);
-    const turnId = await recordTurn(db, ctx, legacyId, question, "grounded", evidence, passages.map((p) => p.sourceId));
-    return {
-      ...base,
-      kind: "grounded",
-      evidence,
-      lead:
-        evidence === "E1"
-          ? `In ${author}'s own words:`
-          : `${author} did not record anything that answers this directly. Based on what they recorded, these may be related:`,
-      passages,
-      rules: appliedRules,
-      teachable: true,
-      turnId,
-    };
+    const { answer, record } = await composeAnswer(db, legacyId, question, author);
+    const { rows } = await db.query(
+      `insert into recipient_turn (legacy_id, asked_by, question, kind, evidence, source_ids)
+       values ($1, $2, $3, $4, $5, $6::uuid[]) returning id`,
+      [legacyId, ctx.accountId, record.question, record.kind, record.evidence, record.sourceIds],
+    );
+    await audit(db, ctx, {
+      action: "answer.recipient",
+      legacyId,
+      targetType: "recipient_turn",
+      targetId: rows[0].id,
+      detail: { kind: record.kind, evidence: record.evidence, sources: record.sourceIds.length, source_ids: record.sourceIds.join(",") || null },
+    });
+    return { ...answer, teachable: false, turnId: rows[0].id as string };
   });
 }
 
@@ -297,10 +359,7 @@ interface Rules {
 }
 
 async function loadRules(db: Queryable, legacyId: string, terms: string[]): Promise<Rules> {
-  const { rows } = await db.query(
-    "select id, memory_id, action, created_at from answer_rule where legacy_id = $1 and terms = $2::text[]",
-    [legacyId, terms],
-  );
+  const { rows } = await db.query("select id, memory_id, action, created_at from app.answer_rules_for($1, $2::text[])", [legacyId, terms]);
   const pin = rows.find((r) => r.action === "pin");
   return {
     pin: pin ? { id: pin.id, memoryId: pin.memory_id, createdAt: new Date(pin.created_at).toISOString() } : null,

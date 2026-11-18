@@ -168,6 +168,17 @@ export async function withdrawConsent(ctx: AuthContext, purpose: ConsentPurpose)
         [ctx.accountId],
       );
       revokedInvitations = res.rowCount ?? 0;
+      // Sharing stops too (slice 5): every share grant across the author's legacies is removed. Access was
+      // already cut at read time by app.shared_with_me; deleting the grants makes the end explicit.
+      const grants = await db.query(
+        `delete from share_grant g using legacy l where l.id = g.legacy_id and l.owner_account_id = $1 returning g.legacy_id`,
+        [ctx.accountId],
+      );
+      const perLegacy = new Map<string, number>();
+      for (const g of grants.rows) perLegacy.set(g.legacy_id, (perLegacy.get(g.legacy_id) ?? 0) + 1);
+      for (const [legacyId, n] of perLegacy) {
+        await audit(db, ctx, { action: "share.revoke_all", legacyId, detail: { reason: "consent_withdrawn", grants: n } });
+      }
       for (const row of res.rows) {
         await audit(db, ctx, {
           action: "invitation.revoke",
