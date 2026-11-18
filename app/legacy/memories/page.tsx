@@ -6,13 +6,16 @@ import { requireSession } from "../../../src/server/session";
 import { formatDateTime, Notices } from "../../components";
 import { submitCreateMemory } from "../../vault-actions";
 import { ApprovalPill, KIND_LABEL } from "./ui";
+import { getPrompt } from "../../../src/domain/prompts";
 
-export default async function Memories({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
+export default async function Memories({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string; prompt?: string; title?: string }> }) {
   const sp = await searchParams;
   const ctx = await requireSession("/legacy/memories");
   const o = await getOverview(ctx);
   if (!o.legacy) redirect("/home");
   const items = await listMemories(ctx, o.legacy.id);
+  const prompt = sp.prompt ? await getPrompt(ctx, sp.prompt) : null;
+  const prefillTitle = (prompt?.text ?? sp.title ?? "").slice(0, 160);
   const approved = items.filter((i) => i.approval === "approved").length;
 
   return (
@@ -52,15 +55,24 @@ export default async function Memories({ searchParams }: { searchParams: Promise
 
       <section className="card" id="add" aria-labelledby="add-h">
         <h2 id="add-h">Add something</h2>
-        <form action={submitCreateMemory}>
+        <p className="small"><Link href="/legacy/prompts">Need ideas? Browse guided prompts</Link></p>
+        {prompt && (
+          <div className="notice info small">
+            <strong>Answering a prompt:</strong> {prompt.text}
+            {prompt.hint && <div>{prompt.hint}</div>}
+            {prompt.gentle && <div>Share only what you are comfortable sharing.</div>}
+          </div>
+        )}
+        <form action={submitCreateMemory} key={prompt?.id ?? sp.title ?? "new"}>
           <input type="hidden" name="legacyId" value={o.legacy.id} />
+          {prompt && <input type="hidden" name="promptId" value={prompt.id} />}
           <fieldset className="plain">
             <legend>What are you adding?</legend>
             <label className="check"><input type="radio" name="kind" value="memory" defaultChecked /> A memory or story</label>
             <label className="check"><input type="radio" name="kind" value="value_statement" /> A value or belief you hold</label>
           </fieldset>
           <label htmlFor="m-title">Title</label>
-          <input id="m-title" name="title" type="text" required maxLength={160} placeholder="For example: The day I failed my driving test" />
+          <input id="m-title" name="title" type="text" required maxLength={160} defaultValue={prefillTitle} placeholder="For example: The day I failed my driving test" />
           <label htmlFor="m-when">When did this happen? (optional)</label>
           <input id="m-when" name="occurredLabel" type="text" maxLength={80} placeholder="For example: 1998, or when you were born" />
           <label htmlFor="m-body">In your own words</label>

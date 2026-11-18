@@ -52,7 +52,7 @@ export async function exportLegacy(ctx: AuthContext, legacyId: string): Promise<
     const legacy = (await q("select id, title, author_display_name, about, state, created_at, updated_at from legacy where id = $1"))[0];
     const recipients = await q("select id, display_name, relationship, is_minor, email, invitation_status, created_at from recipient where legacy_id = $1 order by created_at");
     const trusted = await q("select id, display_name, email, relationship, created_at from trusted_contact where legacy_id = $1 order by created_at");
-    const items = await q("select * from memory_item where legacy_id = $1 order by created_at, id");
+    const items = await q("select i.*, p.text as prompt_text from memory_item i left join prompt p on p.id = i.prompt_id where i.legacy_id = $1 order by i.created_at, i.id");
     const versions = await q("select * from memory_version where legacy_id = $1 order by memory_id, version_no");
     const media = await q("select * from media_asset where legacy_id = $1 order by created_at, id");
     const transcripts = await q("select * from transcript where legacy_id = $1");
@@ -96,6 +96,7 @@ export async function exportLegacy(ctx: AuthContext, legacyId: string): Promise<
     approved_at: iso(i.approved_at),
     current_version: i.current_version,
     sensitivity: i.sensitivity,
+    answered_prompt: i.prompt_id ? { id: i.prompt_id, text: i.prompt_text } : null,
     intended_for_recipient_ids: data.audience.filter((a) => a.memory_id === i.id).map((a) => a.recipient_id),
     shared_with: data.shares
       .filter((g) => g.memory_id === i.id)

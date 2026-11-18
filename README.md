@@ -14,6 +14,8 @@ Product source of truth: the `canonical/` documents in the Echo of Me Claude Pro
 | 3 | Secure retrieval | **3a built, tested**: provider-free grounded answers for author rehearsal (ADR-007a, `tests/results/Slice_3a_Test_Results_v1.0.md`). AI composer awaits ADR-007 |
 | 4 | Author preview (rehearsal) | **Built, tested** (ADR-008, `tests/results/Slice_4_Test_Results_v1.0.md`): practise questions, pin, suppress, answer it yourself |
 | 5 | Recipient roles and release governance | **Built, tested** for living-author sharing (ADR-009, `tests/results/Slice_5_Test_Results_v1.0.md`): share approved items with adult recipients, recipient questions and reports. Posthumous/milestone release not in MVP |
+| — | Guided prompt library (module 05) | **Built, tested** (ADR-010): 35 editorial prompts, follow-ups, gaps from practice |
+| — | Legacy deletion (AC-12) | **Built, tested**: second factor + typed title; cascades everywhere; minimised audit kept |
 | 6 | Pilot telemetry | Not started |
 
 ## Layout

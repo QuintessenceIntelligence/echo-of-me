@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getOverview } from "../../../../src/domain/onboarding";
 import { getMemory } from "../../../../src/domain/vault";
 import { getItemSharing } from "../../../../src/domain/sharing";
+import { nextPrompts } from "../../../../src/domain/prompts";
 import { DomainError } from "../../../../src/domain/errors";
 import { requireSession } from "../../../../src/server/session";
 import { formatDateTime, Notices } from "../../../components";
@@ -47,6 +48,7 @@ export default async function MemoryPage({
   }
   const consent = (p: string) => o.consents.find((c) => c.purpose === p)?.state === "granted";
   const sharing = await getItemSharing(ctx, o.legacy.id, m.id);
+  const next = m.prompt ? await nextPrompts(ctx, o.legacy.id, m.prompt.id) : [];
   const ELIGIBILITY_NOTE: Record<string, string> = {
     minor: "child, record only",
     not_invited: "invite them first",
@@ -73,6 +75,12 @@ export default async function MemoryPage({
         <span className="muted small">Version {m.currentVersion}{m.current.occurredLabel ? ` · ${m.current.occurredLabel}` : ""}</span>
       </div>
       <Notices searchParams={sp} />
+      {m.prompt && (
+        <p className="muted small">
+          Answers the prompt: “{m.prompt.text}”
+          {next.length > 0 && <> · Next in this theme: {next.map((n, i) => <span key={n.id}>{i ? " · " : ""}<Link href={`/legacy/memories?prompt=${n.id}#add`}>{n.text}</Link></span>)}</>}
+        </p>
+      )}
 
       <section className="card" aria-labelledby="approval-h">
         <h2 id="approval-h">Approval</h2>

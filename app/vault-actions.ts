@@ -69,9 +69,11 @@ export async function submitCreateMemory(fd: FormData) {
       occurredLabel: str(fd, "occurredLabel"),
       sensitivity: fd.get("sensitive") === "on" ? "sensitive" : "standard",
       approve,
+      promptId: str(fd, "promptId") || undefined,
     }));
   } catch (err) {
-    go("/legacy/memories#add", "error", messageFor(err));
+    const pid = str(fd, "promptId");
+    go(pid && /^[a-z_]+-[0-9]{2}$/.test(pid) ? `/legacy/memories?prompt=${pid}#add` : "/legacy/memories#add", "error", messageFor(err));
   }
   revalidatePath("/legacy/memories");
   go(`/legacy/memories/${memoryId}`, "ok", approve ? "Saved and approved." : "Saved as a draft. Only approved items can ever be used in answers.");
@@ -333,4 +335,18 @@ export async function submitDeleteLegacy(fd: FormData) {
   }
   revalidatePath("/legacy");
   redirect(`/onboarding/legacy?ok=${encodeURIComponent("Your legacy and everything in it was permanently deleted.")}`);
+}
+
+// ---------------------------------------------------------------- guided prompts (module 05)
+
+export async function submitPromptDismissal(fd: FormData) {
+  const ctx = await requireSession("/legacy/prompts");
+  const dismiss = str(fd, "dismiss") === "yes";
+  const { setPromptDismissed } = await import("../src/domain/prompts");
+  try {
+    await setPromptDismissed(ctx, str(fd, "legacyId"), str(fd, "promptId"), dismiss);
+  } catch (err) {
+    go("/legacy/prompts", "error", messageFor(err));
+  }
+  go(`/legacy/prompts#${str(fd, "theme")}`, "ok", dismiss ? "Prompt hidden. You can show it again below." : "Prompt shown again.");
 }

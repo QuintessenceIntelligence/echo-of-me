@@ -66,6 +66,7 @@ export default async function LegacyDashboard({ searchParams }: { searchParams: 
         </p>
         <div className="actions">
           <Link className="button" href="/legacy/memories">{items.length === 0 ? "Add your first memory" : "Open memories and values"}</Link>
+          <Link className="button secondary" href="/legacy/prompts">Guided prompts</Link>
           {approvedCount > 0 && <Link className="button secondary" href="/legacy/rehearse">Practise questions</Link>}
         </div>
       </section>

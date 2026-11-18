@@ -106,6 +106,8 @@ const MemoryInput = z.object({
   occurredLabel: z.string().trim().max(80, "Please keep this under 80 characters.").optional().transform((v) => v || null),
   sensitivity: z.enum(["standard", "sensitive"]).optional().default("standard"),
   approve: z.boolean().optional().default(false),
+  /** The guided prompt this item answers (module 05), if any. */
+  promptId: z.string().regex(/^[a-z_]+-[0-9]{2}$/).optional().or(z.literal("").transform(() => undefined)),
 });
 
 export async function createMemory(
@@ -130,18 +132,21 @@ export function parseMemoryInput(input: z.input<typeof MemoryInput>): MemoryInpu
 /** Creates an item and its first version inside the caller's transaction (used by rehearsal corrections too). */
 export async function insertMemoryTx(db: Queryable, ctx: AuthContext, legacyId: string, p: MemoryInputParsed): Promise<{ memoryId: string }> {
   await capturableLegacy(db, ctx, legacyId);
+  if (p.promptId && !(await db.query("select 1 from prompt where id = $1 and retired_in is null", [p.promptId])).rowCount) {
+    throw new ValidationError("That prompt is no longer available.");
+  }
   const memoryId = randomUUID();
   await db.query(
-    `insert into memory_item (id, legacy_id, kind, sensitivity, created_by, approval, approved_version, approved_at)
-     values ($1, $2, $3, $4, $5, $6, $7, $8)`,
-    [memoryId, legacyId, p.kind, p.sensitivity, ctx.accountId, p.approve ? "approved" : "draft", p.approve ? 1 : null, p.approve ? new Date() : null],
+    `insert into memory_item (id, legacy_id, kind, sensitivity, created_by, approval, approved_version, approved_at, prompt_id)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [memoryId, legacyId, p.kind, p.sensitivity, ctx.accountId, p.approve ? "approved" : "draft", p.approve ? 1 : null, p.approve ? new Date() : null, p.promptId ?? null],
   );
   await db.query(
     `insert into memory_version (memory_id, legacy_id, version_no, title, body, occurred_label, created_by)
      values ($1, $2, 1, $3, $4, $5, $6)`,
     [memoryId, legacyId, p.title, p.body, p.occurredLabel, ctx.accountId],
   );
-  await audit(db, ctx, { action: "memory.create", legacyId, targetType: "memory", targetId: memoryId, detail: { kind: p.kind, version: 1 } });
+  await audit(db, ctx, { action: "memory.create", legacyId, targetType: "memory", targetId: memoryId, detail: { kind: p.kind, version: 1, prompt: p.promptId ?? null } });
   if (p.approve) await audit(db, ctx, { action: "memory.approve", legacyId, targetType: "memory", targetId: memoryId, detail: { version: 1 } });
   return { memoryId };
 }
@@ -684,6 +689,8 @@ export interface MemoryDetail {
   recipients: { id: string; displayName: string; isMinor: boolean }[];
   /** True only when this item's material may be used in answers (slice 3): approved, current version. */
   citable: boolean;
+  /** The guided prompt this item answers, if any (module 05). */
+  prompt: { id: string; theme: string; text: string } | null;
 }
 
 export function transcriptProvenance(approval: "draft" | "approved"): Provenance {
@@ -695,7 +702,10 @@ export async function getMemory(ctx: AuthContext, legacyId: string, memoryId: st
     await ownedLegacy(db, ctx, legacyId);
     if (!UUID.safeParse(memoryId).success) throw new NotFoundError("memory");
     const i = (await db.query(
-      "select id, legacy_id, kind, approval, approved_at, sensitivity, audience, current_version from memory_item where id = $1 and legacy_id = $2",
+      `select i.id, i.legacy_id, i.kind, i.approval, i.approved_at, i.sensitivity, i.audience, i.current_version,
+              p.id as prompt_id, p.theme as prompt_theme, p.text as prompt_text
+         from memory_item i left join prompt p on p.id = i.prompt_id
+        where i.id = $1 and i.legacy_id = $2`,
       [memoryId, legacyId],
     )).rows[0];
     if (!i) throw new NotFoundError("memory");
@@ -765,6 +775,7 @@ export async function getMemory(ctx: AuthContext, legacyId: string, memoryId: st
       audienceRecipientIds,
       recipients,
       citable: i.approval === "approved",
+      prompt: i.prompt_id ? { id: i.prompt_id, theme: i.prompt_theme, text: i.prompt_text } : null,
     };
   });
 }

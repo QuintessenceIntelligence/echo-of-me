@@ -1,0 +1,54 @@
+{
+  "base_url": "http://localhost:3000",
+  "steps": [
+    {
+      "step": "Prompt library shows seven themes and 0 of 35 answered",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Answering a prompt pre-fills the title and shows the prompt",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "The new memory records which prompt it answers and suggests what to answer next",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "The prompt is marked answered with a link to the memory",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "A prompt can be hidden and appears under Hidden prompts",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "A hidden prompt can be shown again",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "An unanswered practice question appears as a gap",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "'Answer it' pre-fills the question as the title",
+      "passed": true,
+      "note": ""
+    }
+  ],
+  "accessibility": {
+    "prompts": [],
+    "memories_from_prompt": []
+  },
+  "summary": {
+    "steps": 8,
+    "failed": 0,
+    "axe_violation_types": 0
+  }
+}

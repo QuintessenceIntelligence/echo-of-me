@@ -52,6 +52,8 @@ const ACTION_LABEL: Record<string, string> = {
   "answer.report": "A recipient reported an answer",
   "answer.report_resolve": "Report marked as dealt with",
   "legacy.delete": "Legacy deleted",
+  "prompt.dismiss": "Prompt hidden",
+  "prompt.restore": "Prompt shown again",
 };
 
 const REASON_LABEL: Record<string, string> = {

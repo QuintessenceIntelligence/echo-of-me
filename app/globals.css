@@ -127,3 +127,10 @@ form.inline { display: inline; }
 .teach { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 6px; }
 .adjacent li { margin: 4px 0; }
 .own-answer { margin-top: 14px; border-top: 1px solid var(--navy-700); padding-top: 10px; }
+
+/* Module 05: guided prompts */
+.prompt-list { list-style: none; padding: 0; margin: 0; }
+.prompt-list li { padding: 10px 0; border-bottom: 1px solid var(--navy-700); }
+.prompt-list li:last-child { border-bottom: 0; }
+.actions-inline { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin-top: 4px; }
+.theme-nav { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 8px 0 14px; }
