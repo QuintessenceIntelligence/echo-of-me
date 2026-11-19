@@ -44,6 +44,9 @@ export async function refreshIfDue(raw: string | undefined, windowS = 120, now =
   try {
     return encodeProviderSession(await goTrue().refresh(s.refreshToken));
   } catch (err) {
+    // Two requests can race to refresh the same token; the loser sees "already used" while the winner's
+    // response carries the new cookie. Leave the cookie alone in that case instead of signing the person out.
+    if (err instanceof AuthProviderError && err.code === "refresh_token_already_used") return undefined;
     if (err instanceof AuthProviderError && err.status >= 400 && err.status < 500) return null;
     return undefined;
   }

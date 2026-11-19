@@ -162,6 +162,7 @@ export async function startFakeGoTrue(opts: { port?: number; autoconfirm?: boole
       if (grant === "refresh_token") {
         const r = refreshes.get(String(body.refresh_token ?? ""));
         const s = r && sessions.get(r.sessionId);
+        if (r && r.used && s && !s.revoked) return err(400, "refresh_token_already_used");
         if (!r || r.used || !s || s.revoked) return err(400, "refresh_token_not_found");
         r.used = true;
         stats.refreshes += 1;

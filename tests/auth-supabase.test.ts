@@ -93,8 +93,10 @@ describe("Refresh and revocation (proxy)", () => {
     const next = decodeProviderSession(due!)!;
     expect(next.refreshToken).not.toBe(s.refreshToken);
     expect(await verify(next.accessToken)).toBeTruthy();
-    expect(await refreshIfDue(raw, 10_000)).toBeNull(); // the old refresh token was used: session cleared
+    // A second request racing with the first sees "already used": the cookie is left alone, not cleared.
+    expect(await refreshIfDue(raw, 10_000)).toBeUndefined();
     fake.revokeAll("cai@example.test");
+    expect(await refreshIfDue(raw, 10_000)).toBeNull(); // once the session is ended, the old token clears it
     expect(await refreshIfDue(due!, 10_000)).toBeNull(); // signed out everywhere
     expect(await refreshIfDue("garbage")).toBeNull();
     expect(await refreshIfDue(undefined)).toBeUndefined();
