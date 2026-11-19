@@ -129,3 +129,22 @@ describe("Password reset", () => {
     expect((await err(gt.updatePassword(second.accessToken, "yet another new password"))).code).toBe("insufficient_aal");
   });
 });
+
+describe("New phone: replacing the authenticator app", () => {
+  it("needs the second step to add a new app or remove the old one, and the old app stops working after", async () => {
+    await gt.signUp("fay@example.test", "phone change password", "Fay");
+    fake.confirm("fay@example.test");
+    const s = await gt.signInWithPassword("fay@example.test", "phone change password");
+    const oldF = await gt.enrollTotp(s.accessToken);
+    const up = await gt.verifyTotp(s.accessToken, oldF.factorId, totp(oldF.secret));
+    const aal1 = await gt.signInWithPassword("fay@example.test", "phone change password");
+    expect((await err(gt.enrollTotp(aal1.accessToken))).code).toBe("insufficient_aal");
+    expect((await err(gt.removeFactor(aal1.accessToken, oldF.factorId))).code).toBe("insufficient_aal");
+    const newF = await gt.enrollTotp(up.accessToken);
+    const up2 = await gt.verifyTotp(up.accessToken, newF.factorId, totp(newF.secret));
+    await gt.removeFactor(up2.accessToken, oldF.factorId);
+    const later = await gt.signInWithPassword("fay@example.test", "phone change password");
+    expect((await gt.getUser(later.accessToken)).verifiedTotpFactorId).toBe(newF.factorId);
+    expect((await err(gt.verifyTotp(later.accessToken, oldF.factorId, totp(oldF.secret)))).code).toBe("mfa_factor_not_found");
+  });
+});

@@ -57,6 +57,16 @@
       "note": ""
     },
     {
+      "step": "A new authenticator app can replace the old one",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "The old phone's codes no longer work; the new phone's do",
+      "passed": true,
+      "note": ""
+    },
+    {
       "step": "Asking for a reset link gives the same answer whether or not the account exists",
       "passed": true,
       "note": ""
@@ -97,11 +107,12 @@
     "sign_up": [],
     "mfa_enrol": [],
     "mfa_code": [],
+    "replace_authenticator": [],
     "forgot_password": [],
     "reset_password": []
   },
   "summary": {
-    "steps": 18,
+    "steps": 20,
     "failed": 0,
     "axe_violation_types": 0
   }

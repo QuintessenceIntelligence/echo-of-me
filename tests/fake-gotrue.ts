@@ -222,6 +222,7 @@ export async function startFakeGoTrue(opts: { port?: number; autoconfirm?: boole
     const factor = fm ? user.factors.find((f) => f.id === fm[1]) : undefined;
     if (fm && !factor) return err(404, "mfa_factor_not_found");
     if (fm && factor && !fm[2] && req.method === "DELETE") {
+      if (factor.status === "verified" && session.aal !== "aal2") return err(401, "insufficient_aal");
       user.factors = user.factors.filter((f) => f.id !== factor.id);
       return send(200, { id: factor.id });
     }

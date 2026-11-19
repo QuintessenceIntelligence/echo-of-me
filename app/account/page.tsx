@@ -22,7 +22,11 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           <dt>Email</dt><dd>{a.email}</dd>
           <dt>Created</dt><dd>{formatDateTime(a.createdAt)}</dd>
         </dl>
-        {authMode() === "supabase" && <p className="small"><Link href="/account/password">Change your password</Link></p>}
+        {authMode() === "supabase" && (
+          <p className="small">
+            <Link href="/account/password">Change your password</Link> · <Link href="/account/authenticator">Replace your authenticator app</Link>
+          </p>
+        )}
       </div>
 
       <section className="card" id="data" aria-labelledby="data-h">

@@ -174,6 +174,35 @@ try:
         a.get_by_role("button", name="Confirm").click()
         a.wait_for_url("**/legacy")
 
+        # New phone: replace the authenticator app; the old one stops working only after the new one is confirmed.
+        a.goto(BASE + "/account")
+        a.get_by_role("link", name="Replace your authenticator app").click()
+        a.wait_for_url("**/account/authenticator")
+        axe(a, "replace_authenticator")
+        a.get_by_role("button", name="Set up the new authenticator app").click()
+        expect(a.get_by_test_id("totp-secret")).to_be_visible(timeout=15000)
+        new_secret = a.get_by_test_id("totp-secret").inner_text().strip()
+        a.get_by_label("2. Enter the 6-digit code it shows").fill(totp(new_secret))
+        a.get_by_role("button", name="Confirm").click()
+        a.wait_for_url("**/account?ok=**")
+        step("A new authenticator app can replace the old one", "new authenticator app is set up" in a.locator(".notice.ok").inner_text())
+        a.get_by_role("button", name="Sign out").click()
+        a.wait_for_url(BASE + "/")
+        a.goto(BASE + "/sign-in?next=/mfa%3Fnext%3D/legacy")
+        a.get_by_label("Email address").fill(email)
+        a.get_by_label("Password").fill(password)
+        a.get_by_role("button", name="Sign in").click()
+        a.wait_for_url("**/mfa**")
+        a.get_by_label("Enter the 6-digit code from your authenticator app").fill(totp(secret))
+        with a.expect_navigation():
+            a.get_by_role("button", name="Confirm").click()
+        old_refused = a.locator(".notice.error").count() == 1
+        a.get_by_label("Enter the 6-digit code from your authenticator app").fill(totp(new_secret))
+        a.get_by_role("button", name="Confirm").click()
+        a.wait_for_url("**/legacy")
+        step("The old phone's codes no longer work; the new phone's do", old_refused)
+        secret = new_secret
+
         # Forgotten password: reset link (used once), second step required, old password stops working.
         a.get_by_role("button", name="Sign out").click()
         a.wait_for_url(BASE + "/")

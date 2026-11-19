@@ -87,15 +87,21 @@ export interface EnrollState {
   error?: string;
 }
 
-/** Starts authenticator-app setup: removes any half-finished setups, then creates a new TOTP factor. */
-export async function startTotpEnrollment(_prev: EnrollState, _fd: FormData): Promise<EnrollState> {
+/**
+ * Starts authenticator-app setup: removes any half-finished setups, then creates a new TOTP factor.
+ * With replace=1 (a new phone), the current app must already have been confirmed in this session (aal2);
+ * the old app is removed only after the new one has been confirmed (verifyTotpCode).
+ */
+export async function startTotpEnrollment(_prev: EnrollState, fd: FormData): Promise<EnrollState> {
   requireSupabase();
+  const replace = fd.get("replace") === "1";
   const s = await readSession();
   const tokens = await readProviderSession();
   if (!s || !tokens) return { error: "Please sign in again." };
+  if (replace && s.aal !== "aal2") return { error: "Please confirm a code from your current authenticator app first." };
   try {
     const user = await goTrue().getUser(tokens.accessToken);
-    if (user.verifiedTotpFactorId) return { error: "An authenticator app is already set up. Enter its code instead." };
+    if (user.verifiedTotpFactorId && !replace) return { error: "An authenticator app is already set up. Enter its code instead." };
     for (const id of user.unverifiedTotpFactorIds) await goTrue().removeFactor(tokens.accessToken, id).catch(() => undefined);
     const f = await goTrue().enrollTotp(tokens.accessToken);
     return { factorId: f.factorId, qrCode: f.qrCode, secret: f.secret };
@@ -109,19 +115,26 @@ export async function verifyTotpCode(fd: FormData) {
   requireSupabase();
   const next = safeNext(str(fd, "next"), "/legacy");
   const code = str(fd, "code").replace(/\s+/g, "");
-  const back = (err: unknown): never => fail("/mfa", err, next);
+  const replacing = str(fd, "replaceOld") === "1";
+  const back = (err: unknown): never => fail(replacing ? "/account/authenticator" : "/mfa", err, next);
   if (!/^\d{6}$/.test(code)) back(new DomainError("validation", "Please enter the 6-digit code from your authenticator app."));
   const s = await readSession();
   const tokens = await readProviderSession();
   if (!s || !tokens) redirect(`/sign-in?next=${encodeURIComponent(`/mfa?next=${next}`)}`);
   try {
     let factorId = str(fd, "factorId");
-    if (!factorId) factorId = (await goTrue().getUser(tokens.accessToken)).verifiedTotpFactorId ?? "";
+    const before = await goTrue().getUser(tokens.accessToken);
+    if (!factorId) factorId = before.verifiedTotpFactorId ?? "";
     if (!UUID_RE.test(factorId)) throw new DomainError("validation", "Please set up your authenticator app first.");
+    if (replacing && s.aal !== "aal2") throw new DomainError("validation", "Please confirm a code from your current authenticator app first.");
     const upgraded = await goTrue().verifyTotp(tokens.accessToken, factorId, code);
     const claims = await verifyProviderToken(upgraded.accessToken);
     if (claims.aal !== "aal2") throw new AuthProviderError("not_upgraded", "That code did not work. Please try again.", 400);
     await writeProviderSession(upgraded, { accountId: s.accountId, sub: claims.sub, aal: "aal2" });
+    // New phone: remove the old app only now that the new one is confirmed.
+    if (replacing && before.verifiedTotpFactorId && before.verifiedTotpFactorId !== factorId) {
+      await goTrue().removeFactor(upgraded.accessToken, before.verifiedTotpFactorId);
+    }
   } catch (err) {
     back(err);
   }

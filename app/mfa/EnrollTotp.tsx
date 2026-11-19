@@ -4,15 +4,16 @@ import { useActionState } from "react";
 import { startTotpEnrollment, verifyTotpCode, type EnrollState } from "../auth-actions";
 
 /** Authenticator-app setup (ADR-015): the QR code and secret are shown once, here only. */
-export function EnrollTotp({ next }: { next: string }) {
+export function EnrollTotp({ next, replace = false }: { next: string; replace?: boolean }) {
   const [state, action, pending] = useActionState<EnrollState, FormData>(startTotpEnrollment, {});
   if (!state.factorId) {
     return (
       <form action={action}>
+        {replace && <input type="hidden" name="replace" value="1" />}
         {state.error && <p className="notice error small" role="alert">{state.error}</p>}
         <p>Set up an authenticator app (for example Google Authenticator, Microsoft Authenticator or 1Password) once. After that, it gives you a new 6-digit code every 30 seconds.</p>
         <div className="actions">
-          <button type="submit" disabled={pending}>{pending ? "Preparing…" : "Set up an authenticator app"}</button>
+          <button type="submit" disabled={pending}>{pending ? "Preparing…" : replace ? "Set up the new authenticator app" : "Set up an authenticator app"}</button>
         </div>
       </form>
     );
@@ -21,6 +22,7 @@ export function EnrollTotp({ next }: { next: string }) {
     <form action={verifyTotpCode}>
       <input type="hidden" name="next" value={next} />
       <input type="hidden" name="factorId" value={state.factorId} />
+      {replace && <input type="hidden" name="replaceOld" value="1" />}
       <p>1. Scan this code with your authenticator app.</p>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={state.qrCode} alt="QR code to add Echo of Me to your authenticator app" className="qr" width={200} height={200} />
