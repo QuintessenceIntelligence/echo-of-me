@@ -27,6 +27,9 @@ a { color: var(--teal); }
 a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible {
   outline: 3px solid var(--teal); outline-offset: 2px;
 }
+.skip-link { position: absolute; left: 12px; top: -48px; z-index: 10; background: var(--teal); color: var(--navy-950); padding: 8px 14px; border-radius: 8px; font-weight: 600; text-decoration: none; }
+.skip-link:focus, .skip-link:focus-visible { top: 12px; outline: 3px solid var(--text); outline-offset: 2px; }
+main:focus { outline: none; }
 .shell { max-width: 880px; margin: 0 auto; padding: 24px 20px 64px; }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 28px; }
 .brand { font-weight: 650; letter-spacing: .02em; font-size: 1.15rem; color: var(--text); text-decoration: none; }

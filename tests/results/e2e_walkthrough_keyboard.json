@@ -1,0 +1,58 @@
+{
+  "base_url": "http://localhost:3000",
+  "steps": [
+    {
+      "step": "The first Tab reaches 'Skip to main content', and it is visible",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "The skip link moves focus to the main content",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Sign-in, consents and creating a legacy work with the keyboard only",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Every element reached with Tab on /legacy shows a visible focus indicator",
+      "passed": true,
+      "note": "25 stops"
+    },
+    {
+      "step": "Every element reached with Tab on /legacy/memories shows a visible focus indicator",
+      "passed": true,
+      "note": "13 stops"
+    },
+    {
+      "step": "Every element reached with Tab on /legacy/rehearse shows a visible focus indicator",
+      "passed": true,
+      "note": "7 stops"
+    },
+    {
+      "step": "Every element reached with Tab on /legacy/prompts shows a visible focus indicator",
+      "passed": true,
+      "note": "60 stops"
+    },
+    {
+      "step": "Every element reached with Tab on /account shows a visible focus indicator",
+      "passed": true,
+      "note": "9 stops"
+    }
+  ],
+  "accessibility": {
+    "focus_invisible_legacy": [],
+    "focus_invisible_legacy_memories": [],
+    "focus_invisible_legacy_rehearse": [],
+    "focus_invisible_legacy_prompts": [],
+    "focus_invisible_account": []
+  },
+  "summary": {
+    "steps": 8,
+    "failed": 0,
+    "axe_violation_types": 0,
+    "focus_invisible": 0
+  }
+}

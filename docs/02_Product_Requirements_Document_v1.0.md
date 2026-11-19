@@ -60,7 +60,7 @@
 | AC-11 | Pin, correct, suppress; pinned answers served as E1 with the date | ✅ | slice 4 |
 | AC-12 | Export originals and metadata in open formats; delete the legacy everywhere | ✅ | export and deletion tests |
 | AC-13 | Audit of access, sharing, consent and answers (source ids), minimised | ✅ | activity log tests |
-| AC-14 | Core flows meet WCAG 2.2 AA | 🟡 automated checks 0 violations on every main screen; manual testing with assistive-technology users still needed | axe in all walkthroughs |
+| AC-14 | Core flows meet WCAG 2.2 AA | 🟡 automated checks: 0 axe violations on every main screen; skip link; every Tab stop on key pages has a visible focus indicator; sign-in to legacy creation works keyboard-only. Testing with assistive-technology users still needed | axe in all walkthroughs; `walkthrough_keyboard.py` |
 
 ## 6. Non-functional requirements
 | Area | Requirement | Status |

@@ -18,6 +18,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en">
       <body>
+        <a href="#main" className="skip-link">Skip to main content</a>
         <div className="shell">
           <header className="topbar">
             <Link href={session ? "/home" : "/"} className="brand">
@@ -35,7 +36,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               )}
             </div>
           </header>
-          <main>{children}</main>
+          <main id="main" tabIndex={-1}>{children}</main>
           <footer>
             Echo of Me · By Quintessence Intelligence
           </footer>
