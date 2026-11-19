@@ -36,6 +36,11 @@ async function completeSignIn(tokens: ProviderSession, fallbackName: string): Pr
   const claims = await verifyProviderToken(tokens.accessToken);
   if (!claims.email) throw new AuthProviderError("no_email", "Your account has no confirmed email address.", 400);
   const user = await goTrue().getUser(tokens.accessToken);
+  // Invitations are matched by email address, so the address must be proven (ADR-015). The Supabase
+  // project must also keep "Confirm email" switched on; this check is the app's own backstop.
+  if (!user.emailConfirmed || user.email !== claims.email) {
+    throw new AuthProviderError("email_not_confirmed", "Please confirm your email address first, using the link we sent you, then sign in.", 400);
+  }
   const displayName = (user.displayName ?? fallbackName ?? "").trim() || claims.email.split("@")[0];
   const { accountId } = await provisionAccount({ authSubject: `supabase|${claims.sub}`, email: claims.email, displayName: displayName.slice(0, 120) });
   await writeProviderSession(tokens, { accountId, sub: claims.sub, aal: claims.aal });

@@ -178,7 +178,7 @@ export async function startFakeGoTrue(opts: { port?: number; autoconfirm?: boole
       return;
     }
     if (path === "/auth/v1/user" && req.method === "GET") {
-      return send(200, { id: user.id, email: user.email, user_metadata: { display_name: user.displayName }, factors: user.factors.map((f) => ({ id: f.id, factor_type: "totp", status: f.status })) });
+      return send(200, { id: user.id, email: user.email, email_confirmed_at: user.confirmed ? new Date().toISOString() : null, user_metadata: { display_name: user.displayName }, factors: user.factors.map((f) => ({ id: f.id, factor_type: "totp", status: f.status })) });
     }
     if (path === "/auth/v1/factors" && req.method === "POST") {
       if (body.factor_type !== "totp") return err(422, "unsupported_factor");

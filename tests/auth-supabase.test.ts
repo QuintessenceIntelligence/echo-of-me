@@ -51,7 +51,7 @@ describe("Sign-up and sign-in", () => {
     const s = await gt.signInWithPassword("ana@example.test", "correct horse battery");
     const claims = await verify(s.accessToken);
     expect(claims).toMatchObject({ email: "ana@example.test", aal: "aal1" });
-    expect((await gt.getUser(s.accessToken)).displayName).toBe("Ana");
+    expect(await gt.getUser(s.accessToken)).toMatchObject({ displayName: "Ana", emailConfirmed: true });
   });
 
   it("maps refusals to plain messages without echoing what was typed", async () => {

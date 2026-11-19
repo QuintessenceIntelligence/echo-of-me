@@ -29,6 +29,8 @@ export interface ProviderUser {
   id: string;
   email: string | null;
   displayName: string | null;
+  /** The provider has confirmed the person controls this email address (invitations depend on it). */
+  emailConfirmed: boolean;
   verifiedTotpFactorId: string | null;
   unverifiedTotpFactorIds: string[];
 }
@@ -157,6 +159,7 @@ export class GoTrue {
       id: String(u.id ?? ""),
       email: typeof u.email === "string" ? u.email.toLowerCase() : null,
       displayName: typeof meta.display_name === "string" ? meta.display_name : null,
+      emailConfirmed: typeof u.email_confirmed_at === "string" && u.email_confirmed_at.length > 0,
       verifiedTotpFactorId: (totp.find((f) => f.status === "verified")?.id as string | undefined) ?? null,
       unverifiedTotpFactorIds: totp.filter((f) => f.status !== "verified").map((f) => String(f.id)),
     };
