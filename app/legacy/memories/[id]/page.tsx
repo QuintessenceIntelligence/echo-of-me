@@ -159,7 +159,7 @@ export default async function MemoryPage({
               </span>
             </div>
             {a.kind === "audio" ? (
-              <audio controls preload="metadata" src={`/media/${a.id}`} aria-label={`Recording ${idx + 1}`} />
+              <audio controls preload="none" src={`/media/${a.id}`} aria-label={`Recording ${idx + 1}`} />
             ) : (
               <img src={`/media/${a.id}`} alt={`Photo ${idx + 1} for “${m.current.title}”`} className="media-photo" />
             )}

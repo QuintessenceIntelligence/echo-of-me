@@ -52,7 +52,7 @@
 ## Part E: checks before calling it "working" — C, with F signing in
 14. Development sign-in is refused on the preview (automatic when hosted).
 15. Sign up → confirmation email → sign in → set up an authenticator app → invite a second test account → accept → share one item → recipient asks a question → report → author sees the report.
-16. Upload a short recording (under ~4.5 MB; larger files need direct uploads, not built yet) → play it as the recipient → export the legacy → download your own data.
+16. Upload a short recording, then a file over 3 MB (sent in pieces, ADR-016) → play them as the recipient → export the legacy → download your own data.
 17. Forgot password → reset → old password refused.
 18. Close the test recipient's account → its session stops working.
 19. Record the results (DR-053 report) in `canonical/build/` and the handoff. Any difference between the real Supabase API and the stand-in is fixed in `src/server/supabase-auth.ts` or `src/server/storage.ts` only, with a test.
@@ -63,6 +63,5 @@
 
 ## Known limits on the preview
 - Free Supabase plan: pauses after about a week without activity; **no backups** → synthetic data only.
-- Files over ~4.5 MB cannot be uploaded until direct signed uploads are built.
 - No email to recipients yet: invitation links are copied by hand.
 - Doc 05 §13 lists everything still needed before any real personal data (currently **no-go**).

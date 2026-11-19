@@ -22,7 +22,7 @@ The local-disk store is refused on hosted deployments (Vercel's filesystem is no
 - HTTPS required (plain HTTP only for `localhost` tests); error messages carry HTTP status codes only, never keys or secrets.
 
 ## Limits and follow-ups
-- **Request size:** uploads still pass through a server action. On Vercel, request bodies are limited (doc 03 notes 4.5 MB), so hosted recordings and photos are effectively capped at about 4.5 MB until direct signed uploads are added (browser → storage with a short-lived presigned URL, then the server reads the object back, checks type and hash, and records it). At typical speech bitrates this is still many minutes of audio. 🟡
+- **Request size:** uploads pass through server actions, and hosting limits each request (doc 03 notes about 4.5 MB on Vercel). **Resolved by ADR-016** (files over 3 MB are sent in pieces and combined on the server).
 - **Supabase specifics to verify on the real gateway:** path-style listing with continuation tokens, payload-hash checking, error codes, region string. The emulator is a stand-in, not proof.
 - **Secrets:** the access key pair goes only into the hosting provider's encrypted environment variables; rotate if exposed. Generating it requires the founder (dashboard sign-in).
 - **Encryption at rest and backups** of the bucket follow the provider's terms; to be recorded in the operator agreement (doc 05 §7, ⚖ L-05).

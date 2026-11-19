@@ -49,3 +49,6 @@ export function kindOf(mime: AllowedMime): "audio" | "image" {
 }
 
 export const MAX_BYTES = { audio: 25 * 1024 * 1024, image: 10 * 1024 * 1024 } as const;
+
+/** Files larger than this are sent in pieces of this size (ADR-016): below the hosting request limit. */
+export const CHUNK_BYTES = 3 * 1024 * 1024;

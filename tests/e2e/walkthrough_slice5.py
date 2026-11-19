@@ -189,13 +189,13 @@ with sync_playwright() as p:
     a.goto(driving)
     a.evaluate("document.querySelectorAll('#words details').forEach(d => d.open = true)")
     a.locator("#e-body").fill("Rewriting this memory, not ready yet.")
-    with a.expect_navigation():
-        a.get_by_role("button", name="Save new version as draft").click()
+    a.get_by_role("button", name="Save new version as draft").click()
+    a.wait_for_url("**?ok=**")  # wait for the action's own redirect (timing race otherwise)
     r.goto(shared_url)
     step("An edited (draft) item disappears for the recipient at once", "My driving test" not in r.locator("main").inner_text())
     a.goto(driving)
-    with a.expect_navigation():
-        a.get_by_role("button", name="Approve version 2").click()
+    a.get_by_role("button", name="Approve version 2").click()
+    a.wait_for_url("**?ok=**")
     r.goto(shared_url)
     step("Re-approved item is visible again with the new words", "Rewriting this memory" in r.locator("main").inner_text())
     a.goto(BASE + "/legacy")

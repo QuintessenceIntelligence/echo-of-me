@@ -1,0 +1,23 @@
+{
+  "base_url": "http://localhost:3000",
+  "steps": [
+    {
+      "step": "A 7 MB recording is uploaded in pieces and confirmed",
+      "passed": true,
+      "note": "7200044 bytes"
+    },
+    {
+      "step": "The stored file is byte-for-byte the original",
+      "passed": true,
+      "note": ""
+    }
+  ],
+  "accessibility": {
+    "memory_with_large_recording": []
+  },
+  "summary": {
+    "steps": 2,
+    "failed": 0,
+    "axe_violation_types": 0
+  }
+}

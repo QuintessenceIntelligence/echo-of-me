@@ -145,6 +145,47 @@ export async function uploadMediaAction(_prev: UploadState, fd: FormData): Promi
   return { ok: capture === "browser_recording" ? "Recording saved exactly as recorded." : "File saved exactly as uploaded." };
 }
 
+// ---------------------------------------------------------------- chunked uploads (ADR-016)
+
+export async function startUploadAction(legacyId: string, memoryId: string, size: number, capture: string, filename: string): Promise<{ uploadId?: string; chunkBytes?: number; error?: string }> {
+  const ctx = await readSession();
+  if (!ctx) return { error: "Please sign in again." };
+  const { startUpload } = await import("../src/domain/uploads");
+  try {
+    const r = await startUpload(ctx, legacyId, memoryId, { size, capture: capture === "browser_recording" ? "browser_recording" : "upload", filename });
+    return { uploadId: r.uploadId, chunkBytes: r.chunkBytes };
+  } catch (err) {
+    return { error: messageFor(err) };
+  }
+}
+
+export async function putChunkAction(fd: FormData): Promise<{ error?: string }> {
+  const ctx = await readSession();
+  if (!ctx) return { error: "Please sign in again." };
+  const piece = fd.get("piece");
+  if (!(piece instanceof Blob)) return { error: "Part of the file did not arrive. Please upload it again." };
+  const { putChunk } = await import("../src/domain/uploads");
+  try {
+    await putChunk(ctx, str(fd, "uploadId"), num(fd, "seq"), Buffer.from(await piece.arrayBuffer()));
+    return {};
+  } catch (err) {
+    return { error: messageFor(err) };
+  }
+}
+
+export async function finishUploadAction(uploadId: string, memoryId: string, capture: string): Promise<UploadState> {
+  const ctx = await readSession();
+  if (!ctx) return { error: "Please sign in again." };
+  const { finishUpload } = await import("../src/domain/uploads");
+  try {
+    await finishUpload(ctx, uploadId);
+  } catch (err) {
+    return { error: messageFor(err) };
+  }
+  if (UUID_RE.test(memoryId)) revalidatePath(`/legacy/memories/${memoryId}`);
+  return { ok: capture === "browser_recording" ? "Recording saved exactly as recorded." : "File saved exactly as uploaded." };
+}
+
 export async function submitDeleteMedia(fd: FormData) {
   await run(fd, "Recording deleted.", (ctx) => deleteMedia(ctx, str(fd, "legacyId"), str(fd, "assetId")), "#media");
 }

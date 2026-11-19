@@ -308,6 +308,20 @@ export async function addMedia(
 ): Promise<{ assetId: string; mimeType: AllowedMime; sha256: string; byteSize: number }> {
   if (!Buffer.isBuffer(input.bytes) || input.bytes.length === 0) throw new ValidationError("The file is empty.");
   await enforceLimit(ctx, "upload", legacyId);
+  return storeMedia(ctx, legacyId, memoryId, input);
+}
+
+/**
+ * The checks and storage behind addMedia, without counting a rate-limit attempt. Used directly only by
+ * chunked uploads (uploads.ts), which count the attempt when the upload starts.
+ */
+export async function storeMedia(
+  ctx: AuthContext,
+  legacyId: string,
+  memoryId: string,
+  input: AddMediaInput,
+): Promise<{ assetId: string; mimeType: AllowedMime; sha256: string; byteSize: number }> {
+  if (!Buffer.isBuffer(input.bytes) || input.bytes.length === 0) throw new ValidationError("The file is empty.");
   if (input.capture !== "upload" && input.capture !== "browser_recording") throw new ValidationError("Unknown capture method.");
   const mime = sniffMime(input.bytes);
   if (!mime) {
