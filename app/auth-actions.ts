@@ -127,3 +127,68 @@ export async function verifyTotpCode(fd: FormData) {
   }
   redirect(next);
 }
+
+// ---------------------------------------------------------------- password reset and change
+
+/** Sends a reset link if the account exists; the reply is the same either way (no account probing). */
+export async function requestPasswordReset(fd: FormData) {
+  requireSupabase();
+  const email = str(fd, "email").trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) fail("/forgot-password", new DomainError("validation", "Please enter your email address."));
+  const site = (process.env.APP_BASE_URL ?? "").replace(/\/+$/, "");
+  try {
+    await goTrue().requestPasswordReset(email, `${site}/reset-password`);
+  } catch (err) {
+    fail("/forgot-password", err);
+  }
+  redirect(`/sign-in?ok=${encodeURIComponent("If an account uses that address, we have emailed a link to choose a new password. It works once and expires soon.")}`);
+}
+
+/**
+ * Uses the one-time token from the reset email. Done on a button press (POST), never when the link is
+ * merely opened, because email scanners open links and would otherwise use up the token.
+ */
+export async function completePasswordReset(fd: FormData) {
+  requireSupabase();
+  const tokenHash = str(fd, "token_hash");
+  if (!/^[A-Za-z0-9_-]{8,200}$/.test(tokenHash)) fail("/forgot-password", new AuthProviderError("otp_expired", "This link has expired or was already used. Please ask for a new one.", 400));
+  try {
+    await completeSignIn(await goTrue().verifyRecovery(tokenHash), "");
+  } catch (err) {
+    fail("/forgot-password", err);
+  }
+  redirect("/account/password?reset=1");
+}
+
+/**
+ * Sets a new password for the signed-in person. If an authenticator app is set up, its code is needed
+ * too (a password change is a sensitive action). Other sessions are signed out afterwards.
+ */
+export async function changePassword(fd: FormData) {
+  requireSupabase();
+  const back = (err: unknown): never => fail("/account/password", err);
+  const password = str(fd, "password");
+  if (password.length < MIN_PASSWORD) back(new DomainError("validation", `Please choose a password of at least ${MIN_PASSWORD} characters.`));
+  if (password !== str(fd, "password2")) back(new DomainError("validation", "The two passwords are different."));
+  const s = await readSession();
+  let tokens = await readProviderSession();
+  if (!s || !tokens) redirect("/sign-in?next=/account/password");
+  try {
+    if (s.aal !== "aal2") {
+      const user = await goTrue().getUser(tokens.accessToken);
+      if (user.verifiedTotpFactorId) {
+        const code = str(fd, "code").replace(/\s+/g, "");
+        if (!/^\d{6}$/.test(code)) throw new DomainError("validation", "Please enter the 6-digit code from your authenticator app.");
+        const upgraded = await goTrue().verifyTotp(tokens.accessToken, user.verifiedTotpFactorId, code);
+        const claims = await verifyProviderToken(upgraded.accessToken);
+        await writeProviderSession(upgraded, { accountId: s.accountId, sub: claims.sub, aal: claims.aal });
+        tokens = upgraded;
+      }
+    }
+    await goTrue().updatePassword(tokens.accessToken, password);
+    await goTrue().signOut(tokens.accessToken, "others");
+  } catch (err) {
+    back(err);
+  }
+  redirect(`/account?ok=${encodeURIComponent("Your password was changed. Any other devices were signed out.")}`);
+}

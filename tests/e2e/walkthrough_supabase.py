@@ -9,6 +9,7 @@ import hashlib
 import hmac
 import json
 import os
+import signal
 import struct
 import subprocess
 import sys
@@ -72,8 +73,9 @@ def wait_http(url, seconds=30):
 env = dict(os.environ, AUTH_MODE="supabase", SUPABASE_URL=IDP, SUPABASE_PUBLISHABLE_KEY="sb_publishable_test_only",
            DATABASE_URL="postgresql://postgres@localhost/echo_e2e?host=/tmp&port=5433",
            SESSION_SECRET="e2e-secret-0123456789abcdef0123456789abcdef", STORAGE_DIR="/tmp/e2e-blobs")
-fake = subprocess.Popen(["npx", "tsx", "tests/fake-gotrue.ts", "54321", "130"], cwd=ROOT, stdout=subprocess.DEVNULL)
-app = subprocess.Popen(["npx", "next", "start", "-p", "3001"], cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+# Own process groups, so stopping them also stops the node processes that npx starts.
+fake = subprocess.Popen(["npx", "tsx", "tests/fake-gotrue.ts", "54321", "130"], cwd=ROOT, stdout=subprocess.DEVNULL, start_new_session=True)
+app = subprocess.Popen(["npx", "next", "start", "-p", "3001"], cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
 try:
     assert wait_http(IDP + "/__test/stats") and wait_http(BASE + "/sign-in"), "servers did not start"
     email = f"mum.sb.{SUFFIX}@example.test"
@@ -172,6 +174,46 @@ try:
         a.get_by_role("button", name="Confirm").click()
         a.wait_for_url("**/legacy")
 
+        # Forgotten password: reset link (used once), second step required, old password stops working.
+        a.get_by_role("button", name="Sign out").click()
+        a.wait_for_url(BASE + "/")
+        a.goto(BASE + "/sign-in")
+        a.get_by_role("link", name="Forgot your password?").click()
+        a.wait_for_url("**/forgot-password")
+        axe(a, "forgot_password")
+        a.get_by_label("Email address").fill(email)
+        with a.expect_navigation():
+            a.get_by_role("button", name="Email me a link").click()
+        step("Asking for a reset link gives the same answer whether or not the account exists", "If an account uses that address" in a.locator(".notice.ok").inner_text())
+        token_hash = idp(f"/__test/last-recovery?email={email}", "GET")["token_hash"]
+        a.goto(f"{BASE}/reset-password?token_hash={token_hash}")
+        axe(a, "reset_password")
+        a.get_by_role("button", name="Continue").click()
+        a.wait_for_url("**/account/password?reset=1")
+        new_password = "my new test password 456"
+        a.get_by_label("New password (at least 12 characters)").fill(new_password)
+        a.get_by_label("Type it again").fill(new_password)
+        step("Choosing a new password asks for the authenticator code because one is set up", a.get_by_label("Code from your authenticator app").count() == 1)
+        a.get_by_label("Code from your authenticator app").fill(totp(secret))
+        a.get_by_role("button", name="Save new password").click()
+        a.wait_for_url("**/account?ok=**")
+        step("The new password is saved", "password was changed" in a.locator(".notice.ok").inner_text())
+        a.goto(f"{BASE}/reset-password?token_hash={token_hash}")
+        a.get_by_role("button", name="Continue").click()
+        a.wait_for_url("**/forgot-password?**")
+        step("A reset link works only once", "expired or was already used" in a.locator(".notice.error").inner_text())
+        a.goto(BASE + "/sign-in?next=/legacy")
+        a.get_by_label("Email address").fill(email)
+        a.get_by_label("Password").fill(password)
+        with a.expect_navigation():
+            a.get_by_role("button", name="Sign in").click()
+        old_refused = "incorrect" in a.locator(".notice.error").inner_text()
+        a.get_by_label("Email address").fill(email)
+        a.get_by_label("Password").fill(new_password)
+        a.get_by_role("button", name="Sign in").click()
+        a.wait_for_url("**/legacy")
+        step("The old password no longer works; the new one does", old_refused)
+
         before = idp("/__test/stats", "GET")["refreshes"]
         time.sleep(12)  # tokens live 130 s here; the app refreshes them in the last 120 s
         a.goto(BASE + "/legacy")
@@ -184,8 +226,11 @@ try:
         step("When the provider ends the session (e.g. signed out everywhere), the app signs the person out", "/sign-in" in a.url)
         browser.close()
 finally:
-    app.terminate()
-    fake.terminate()
+    for proc in (app, fake):
+        try:
+            os.killpg(proc.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
 
 total = sum(len(v) for v in results["accessibility"].values())
 results["summary"] = {"steps": len(results["steps"]), "failed": sum(1 for s in results["steps"] if not s["passed"]), "axe_violation_types": total}

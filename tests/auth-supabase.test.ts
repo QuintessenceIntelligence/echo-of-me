@@ -109,3 +109,23 @@ describe("Refresh and revocation (proxy)", () => {
     setGoTrueForTests(gt);
   });
 });
+
+describe("Password reset", () => {
+  it("sends nothing distinguishable for unknown addresses, uses each link once, and needs the second step when set up", async () => {
+    await gt.signUp("eve@example.test", "the original password", "Eve");
+    fake.confirm("eve@example.test");
+    await expect(gt.requestPasswordReset("nobody@example.test", "http://localhost/reset-password")).resolves.toBeUndefined();
+    await gt.requestPasswordReset("eve@example.test", "http://localhost/reset-password");
+    const { token_hash } = (await (await fetch(`${fake.url}/__test/last-recovery?email=eve@example.test`)).json()) as { token_hash: string };
+    const s = await gt.verifyRecovery(token_hash);
+    expect((await verify(s.accessToken)).aal).toBe("aal1");
+    expect((await err(gt.verifyRecovery(token_hash))).message).toMatch(/expired or was already used/);
+    await gt.updatePassword(s.accessToken, "a brand new password");
+    expect((await err(gt.updatePassword(s.accessToken, "a brand new password"))).message).toMatch(/different from your current one/);
+    const again = await gt.signInWithPassword("eve@example.test", "a brand new password");
+    const f = await gt.enrollTotp(again.accessToken);
+    await gt.verifyTotp(again.accessToken, f.factorId, totp(f.secret));
+    const second = await gt.signInWithPassword("eve@example.test", "a brand new password");
+    expect((await err(gt.updatePassword(second.accessToken, "yet another new password"))).code).toBe("insufficient_aal");
+  });
+});

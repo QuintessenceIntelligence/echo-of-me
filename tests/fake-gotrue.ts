@@ -4,7 +4,8 @@
  * checks real TOTP codes (RFC 6238). It is NOT evidence that the real service behaves the same way.
  *
  * Run standalone for browser tests:  npx tsx tests/fake-gotrue.ts <port> [accessTtlSeconds]
- * Test-only endpoints: POST /__test/confirm?email=, POST /__test/revoke?email=, GET /__test/stats
+ * Test-only endpoints: POST /__test/confirm?email=, POST /__test/revoke?email=, GET /__test/stats,
+ * GET /__test/last-recovery?email= (the token_hash a reset email would contain)
  */
 import { createHmac, generateKeyPairSync, randomBytes, randomUUID, sign, type KeyObject } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
@@ -72,6 +73,7 @@ export async function startFakeGoTrue(opts: { port?: number; autoconfirm?: boole
   const sessions = new Map<string, Session>();
   const refreshes = new Map<string, Refresh>();
   const challenges = new Map<string, { factorId: string; expires: number }>();
+  const recoveries = new Map<string, string>(); // token_hash -> email (one-time)
   const stats = { refreshes: 0, signIns: 0 };
   const ttl = opts.accessTtlS ?? 3600;
   let base = "";
@@ -128,6 +130,7 @@ export async function startFakeGoTrue(opts: { port?: number; autoconfirm?: boole
       if (path === "/__test/confirm") { const u = users.get(email); if (u) u.confirmed = true; return send(200, { ok: Boolean(u) }); }
       if (path === "/__test/revoke") { api.revokeAll(email); return send(200, { ok: true }); }
       if (path === "/__test/stats") return send(200, stats);
+      if (path === "/__test/last-recovery") return send(200, { token_hash: [...recoveries.entries()].reverse().find(([, e]) => e === email)?.[0] ?? null });
       return err(404, "not_found");
     }
     if (path === "/auth/v1/.well-known/jwks.json") return send(200, { keys: [jwk] });
@@ -168,17 +171,44 @@ export async function startFakeGoTrue(opts: { port?: number; autoconfirm?: boole
       return err(400, "unsupported_grant_type");
     }
 
+    if (path === "/auth/v1/recover" && req.method === "POST") {
+      const email = String(body.email ?? "").toLowerCase();
+      if (users.has(email)) recoveries.set(randomBytes(20).toString("hex"), email);
+      return send(200, {});
+    }
+    if (path === "/auth/v1/verify" && req.method === "POST") {
+      const email = recoveries.get(String(body.token_hash ?? ""));
+      recoveries.delete(String(body.token_hash ?? ""));
+      const u = email ? users.get(email) : undefined;
+      if (body.type !== "recovery" || !u) return err(403, "otp_expired");
+      const s: Session = { id: randomUUID(), userId: u.id, aal: "aal1", revoked: false };
+      sessions.set(s.id, s);
+      return send(200, issue(u, s));
+    }
+
     const who = bearer(req);
     if (!who) return err(401, "bad_jwt");
     const { user, session } = who;
     if (path === "/auth/v1/logout" && req.method === "POST") {
       const scope = url.searchParams.get("scope") ?? "global";
-      for (const s of sessions.values()) if (s.userId === user.id && (scope === "global" || s.id === session.id)) s.revoked = true;
+      for (const s of sessions.values()) {
+        if (s.userId !== user.id) continue;
+        if (scope === "global" || (scope === "local" && s.id === session.id) || (scope === "others" && s.id !== session.id)) s.revoked = true;
+      }
       res.writeHead(204).end();
       return;
     }
     if (path === "/auth/v1/user" && req.method === "GET") {
       return send(200, { id: user.id, email: user.email, email_confirmed_at: user.confirmed ? new Date().toISOString() : null, user_metadata: { display_name: user.displayName }, factors: user.factors.map((f) => ({ id: f.id, factor_type: "totp", status: f.status })) });
+    }
+    if (path === "/auth/v1/user" && req.method === "PUT") {
+      if (user.factors.some((f) => f.status === "verified") && session.aal !== "aal2") return err(401, "insufficient_aal");
+      if (typeof body.password === "string") {
+        if (body.password === user.password) return err(422, "same_password");
+        if (body.password.length < 6) return err(422, "weak_password");
+        user.password = body.password;
+      }
+      return send(200, { id: user.id, email: user.email });
     }
     if (path === "/auth/v1/factors" && req.method === "POST") {
       if (body.factor_type !== "totp") return err(422, "unsupported_factor");

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getAccount } from "../../src/domain/account";
-import { requireSession } from "../../src/server/session";
+import { authMode, requireSession } from "../../src/server/session";
 import { submitCloseAccount, submitLeaveLegacy } from "../account-actions";
 import { formatDateTime, Notices } from "../components";
 
@@ -22,6 +22,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           <dt>Email</dt><dd>{a.email}</dd>
           <dt>Created</dt><dd>{formatDateTime(a.createdAt)}</dd>
         </dl>
+        {authMode() === "supabase" && <p className="small"><Link href="/account/password">Change your password</Link></p>}
       </div>
 
       <section className="card" id="data" aria-labelledby="data-h">

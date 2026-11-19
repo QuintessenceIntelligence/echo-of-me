@@ -57,6 +57,31 @@
       "note": ""
     },
     {
+      "step": "Asking for a reset link gives the same answer whether or not the account exists",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Choosing a new password asks for the authenticator code because one is set up",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "The new password is saved",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "A reset link works only once",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "The old password no longer works; the new one does",
+      "passed": true,
+      "note": ""
+    },
+    {
       "step": "Tokens are refreshed before they expire and the person stays signed in",
       "passed": true,
       "note": ""
@@ -71,10 +96,12 @@
     "sign_in_supabase": [],
     "sign_up": [],
     "mfa_enrol": [],
-    "mfa_code": []
+    "mfa_code": [],
+    "forgot_password": [],
+    "reset_password": []
   },
   "summary": {
-    "steps": 13,
+    "steps": 18,
     "failed": 0,
     "axe_violation_types": 0
   }

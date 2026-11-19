@@ -31,7 +31,9 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
             <button type="submit">Sign in</button>
           </div>
         </form>
-        <p className="small">New here? <Link href={`/sign-up?next=${encodeURIComponent(next)}`}>Create an account</Link></p>
+        <p className="small">
+          <Link href="/forgot-password">Forgot your password?</Link> · New here? <Link href={`/sign-up?next=${encodeURIComponent(next)}`}>Create an account</Link>
+        </p>
       </>
     );
   }

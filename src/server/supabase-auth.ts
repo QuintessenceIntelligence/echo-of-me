@@ -15,6 +15,11 @@
  *   POST /auth/v1/factors/{id}/challenge         (bearer)                           → {id}
  *   POST /auth/v1/factors/{id}/verify            {challenge_id, code}               → session (aal2)
  *   GET  /auth/v1/.well-known/jwks.json                                             → JWKS
+ *   POST /auth/v1/recover?redirect_to=…         {email}                            → 200 (always)
+ *   POST /auth/v1/verify                         {type:"recovery", token_hash}      → session (aal1)
+ *   PUT  /auth/v1/user                           (bearer) {password}                → user
+ * Password reset needs the project's "Reset password" email template to link to
+ * <site>/reset-password?token_hash={{ .TokenHash }} (ADR-015).
  */
 
 /** Minimum password length asked of people (the provider may enforce more). */
@@ -57,6 +62,9 @@ const FRIENDLY: Record<string, string> = {
   over_request_rate_limit: "Too many attempts. Please wait a few minutes and try again.",
   over_email_send_rate_limit: "Too many emails were sent. Please wait a little and try again.",
   refresh_token_not_found: "Your session has ended. Please sign in again.",
+  otp_expired: "This link has expired or was already used. Please ask for a new one.",
+  same_password: "Please choose a password different from your current one.",
+  insufficient_aal: "Please enter the code from your authenticator app as well.",
   refresh_token_already_used: "Your session has ended. Please sign in again.",
   session_not_found: "Your session has ended. Please sign in again.",
   signup_disabled: "New sign-ups are closed for this test version.",
@@ -146,8 +154,24 @@ export class GoTrue {
     return this.session(await this.call("/token?grant_type=refresh_token", { method: "POST", body: { refresh_token: refreshToken } }));
   }
 
-  async signOut(accessToken: string, scope: "local" | "global" = "local"): Promise<void> {
+  async signOut(accessToken: string, scope: "local" | "global" | "others" = "local"): Promise<void> {
     await this.call(`/logout?scope=${scope}`, { method: "POST", token: accessToken }).catch(() => undefined);
+  }
+
+  /** Asks the provider to email a reset link. Always looks the same to the caller (no account probing). */
+  async requestPasswordReset(email: string, redirectTo: string): Promise<void> {
+    await this.call(`/recover?redirect_to=${encodeURIComponent(redirectTo)}`, { method: "POST", body: { email } }).catch((err) => {
+      if (err instanceof AuthProviderError && (err.status === 429 || err.code === "unreachable")) throw err;
+    });
+  }
+
+  /** Exchanges the one-time token from a reset email for a (first-factor) session. */
+  async verifyRecovery(tokenHash: string): Promise<ProviderSession> {
+    return this.session(await this.call("/verify", { method: "POST", body: { type: "recovery", token_hash: tokenHash } }));
+  }
+
+  async updatePassword(accessToken: string, password: string): Promise<void> {
+    await this.call("/user", { method: "PUT", token: accessToken, body: { password } });
   }
 
   async getUser(accessToken: string): Promise<ProviderUser> {
