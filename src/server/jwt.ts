@@ -137,7 +137,7 @@ export function remoteJwks(url: string, opts: { ttlMs?: number; minRefreshMs?: n
     async keys(force: boolean) {
       const age = Date.now() - fetchedAt;
       const stale = fetchedAt === 0 || age > ttl;
-      if (!stale && !(force && age > minRefresh)) return cached;
+      if (!stale && !(force && age >= minRefresh)) return cached;
       inflight ??= load().finally(() => {
         inflight = null;
       });
