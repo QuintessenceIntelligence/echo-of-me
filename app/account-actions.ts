@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { closeAccount, leaveLegacy } from "../src/domain/account";
 import { DomainError, ValidationError } from "../src/domain/errors";
-import { clearSession, requireSession } from "../src/server/session";
+import { authMode, clearSession, readProviderSession, requireSession } from "../src/server/session";
+import { goTrue } from "../src/server/supabase-auth";
 
 function messageFor(err: unknown): string {
   if (err instanceof ValidationError) {
@@ -42,6 +43,12 @@ export async function submitCloseAccount(fd: FormData) {
   } catch (err) {
     if (err instanceof DomainError && err.code === "mfa_required") redirect("/mfa?next=/account");
     back("error", messageFor(err), "close");
+  }
+  if (authMode() === "supabase") {
+    // End every session at the identity provider too. Deleting the provider's user record needs an
+    // administrator credential the app deliberately does not hold (ADR-015).
+    const tokens = await readProviderSession();
+    if (tokens) await goTrue().signOut(tokens.accessToken, "global");
   }
   await clearSession();
   redirect(`/sign-in?ok=${encodeURIComponent("Your account was closed. Your name and email address were removed.")}`);

@@ -1,0 +1,81 @@
+{
+  "base_url": "http://localhost:3001",
+  "steps": [
+    {
+      "step": "Sign-in asks for email and password; no development sign-in is offered",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Sign-up asks the person to confirm their email address",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Signing in before confirming is refused with a clear message",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "A wrong password is refused",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Signed in: the provider's tokens are in an HTTP-only cookie",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Inviting without the second step is refused and points to it",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Authenticator setup shows a QR code and a key",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "A wrong code is refused",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "With the right code the session is upgraded and the invitation is created",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Signed out: protected pages send you to sign-in",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Next time, only the 6-digit code is asked for",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "Tokens are refreshed before they expire and the person stays signed in",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "step": "When the provider ends the session (e.g. signed out everywhere), the app signs the person out",
+      "passed": true,
+      "note": ""
+    }
+  ],
+  "accessibility": {
+    "sign_in_supabase": [],
+    "sign_up": [],
+    "mfa_enrol": [],
+    "mfa_code": []
+  },
+  "summary": {
+    "steps": 13,
+    "failed": 0,
+    "axe_violation_types": 0
+  }
+}

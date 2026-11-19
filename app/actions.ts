@@ -15,7 +15,8 @@ import {
   removeRecipient,
   revokeInvitation,
 } from "../src/domain/onboarding";
-import { authMode, clearSession, readSession, requireSession, writeSession } from "../src/server/session";
+import { authMode, clearSession, readProviderSession, readSession, requireSession, writeSession } from "../src/server/session";
+import { goTrue } from "../src/server/supabase-auth";
 
 function safeNext(v: FormDataEntryValue | null, fallback = "/home"): string {
   const s = typeof v === "string" ? v : "";
@@ -64,6 +65,10 @@ export async function devConfirmSecondFactor(fd: FormData) {
 }
 
 export async function signOut() {
+  if (authMode() === "supabase") {
+    const tokens = await readProviderSession();
+    if (tokens) await goTrue().signOut(tokens.accessToken);
+  }
   await clearSession();
   redirect("/");
 }

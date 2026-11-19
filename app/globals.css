@@ -148,3 +148,4 @@ form.inline { display: inline; }
 .facts dt { font-weight: 600; }
 .facts dd { margin: 0; overflow-wrap: anywhere; }
 .subcard { border-top: 1px solid var(--navy-700); padding-top: 12px; margin-top: 12px; }
+.qr { display: block; background: #fff; padding: 8px; border-radius: 8px; margin: 8px 0 12px; }

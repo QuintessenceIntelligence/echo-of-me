@@ -2,17 +2,23 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { AuthContext } from "../domain/auth";
+import { remoteJwks, verifyAccessToken, type AccessClaims, type JwksSource } from "./jwt";
+import { decodeProviderSession, encodeProviderSession, IDP_COOKIE, MAX_AGE_S, SESSION_COOKIE } from "./idp-cookie";
+import { goTrue, type ProviderSession } from "./supabase-auth";
 
 /**
- * Session handling (ADR-004).
+ * Session handling (ADR-004, ADR-015).
  *
- * Production sign-in and the second factor come from an external identity provider that has not been
- * chosen yet (needs founder approval as a vendor). Until then the app runs ONLY in AUTH_MODE=dev:
- * a development sign-in with a SIMULATED second-factor step, clearly labelled in the UI.
- * With any other AUTH_MODE, sign-in is unavailable — the app never silently falls back to dev mode.
+ *  - AUTH_MODE=dev: development sign-in with a SIMULATED second factor, clearly labelled in the UI,
+ *    never on a hosted deployment. The signed app cookie carries the account and assurance level.
+ *  - AUTH_MODE=supabase: Supabase Auth. The signed app cookie binds the account to the identity
+ *    provider's user id; the provider's tokens live in a separate HTTP-only cookie. On every request the
+ *    access token's signature and claims are checked against the provider's published keys, and the
+ *    assurance level (aal1/aal2) is taken from the token, never from our own cookie. proxy.ts refreshes
+ *    the token shortly before it expires.
+ *  - Any other mode: nobody is signed in.
  */
-const COOKIE = "eom_session";
-const MAX_AGE_S = 60 * 60 * 8;
+const COOKIE = SESSION_COOKIE;
 
 export { authMode } from "./auth-mode";
 import { authMode } from "./auth-mode";
@@ -29,27 +35,41 @@ function sign(payload: string): string {
 
 interface SessionPayload extends AuthContext {
   exp: number;
+  /** Identity-provider user id (supabase mode only). */
+  sub?: string;
 }
 
-export async function writeSession(ctx: AuthContext): Promise<void> {
-  const payload = Buffer.from(JSON.stringify({ ...ctx, exp: Date.now() + MAX_AGE_S * 1000 })).toString("base64url");
-  (await cookies()).set(COOKIE, `${payload}.${sign(payload)}`, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: MAX_AGE_S,
-  });
+const cookieOptions = () => ({
+  httpOnly: true,
+  sameSite: "lax" as const,
+  secure: process.env.NODE_ENV === "production",
+  path: "/",
+  maxAge: MAX_AGE_S,
+});
+
+export async function writeSession(ctx: AuthContext & { sub?: string }): Promise<void> {
+  const body: SessionPayload = { accountId: ctx.accountId, aal: ctx.aal, exp: Date.now() + MAX_AGE_S * 1000, ...(ctx.sub ? { sub: ctx.sub } : {}) };
+  const payload = Buffer.from(JSON.stringify(body)).toString("base64url");
+  (await cookies()).set(COOKIE, `${payload}.${sign(payload)}`, cookieOptions());
+}
+
+/** Stores the identity provider's tokens (supabase mode) next to the signed app session. */
+export async function writeProviderSession(tokens: ProviderSession, account: { accountId: string; sub: string; aal: AuthContext["aal"] }): Promise<void> {
+  (await cookies()).set(IDP_COOKIE, encodeProviderSession(tokens), cookieOptions());
+  await writeSession(account);
+}
+
+export async function readProviderSession(): Promise<ProviderSession | null> {
+  return decodeProviderSession((await cookies()).get(IDP_COOKIE)?.value);
 }
 
 export async function clearSession(): Promise<void> {
-  (await cookies()).delete(COOKIE);
+  const jar = await cookies();
+  jar.delete(COOKIE);
+  jar.delete(IDP_COOKIE);
 }
 
-export async function readSession(): Promise<AuthContext | null> {
-  const jar = await cookies(); // read first so every caller is rendered per request
-  if (authMode() !== "dev") return null;
-  const raw = jar.get(COOKIE)?.value;
+function readSigned(raw: string | undefined): SessionPayload | null {
   if (!raw) return null;
   const [payload, sig] = raw.split(".");
   if (!payload || !sig) return null;
@@ -60,7 +80,40 @@ export async function readSession(): Promise<AuthContext | null> {
     const p = JSON.parse(Buffer.from(payload, "base64url").toString()) as SessionPayload;
     if (typeof p.exp !== "number" || p.exp < Date.now()) return null;
     if (p.aal !== "aal1" && p.aal !== "aal2") return null;
-    return { accountId: p.accountId, aal: p.aal };
+    if (typeof p.accountId !== "string") return null;
+    return p;
+  } catch {
+    return null;
+  }
+}
+
+let jwks: JwksSource | undefined;
+function providerKeys(): JwksSource {
+  jwks ??= remoteJwks(goTrue().jwksUrl);
+  return jwks;
+}
+
+/** Verifies an access token from the configured identity provider. */
+export async function verifyProviderToken(accessToken: string): Promise<AccessClaims> {
+  return verifyAccessToken(accessToken, { issuer: goTrue().issuer, jwks: providerKeys() });
+}
+
+export async function readSession(): Promise<AuthContext | null> {
+  const jar = await cookies(); // read first so every caller is rendered per request
+  const mode = authMode();
+  if (mode === "unconfigured") return null;
+  const p = readSigned(jar.get(COOKIE)?.value);
+  if (!p) return null;
+  if (mode === "dev") return p.sub ? null : { accountId: p.accountId, aal: p.aal };
+
+  // supabase: the provider's token must be valid and belong to the same person as the app session.
+  if (!p.sub) return null;
+  const tokens = decodeProviderSession(jar.get(IDP_COOKIE)?.value);
+  if (!tokens) return null;
+  try {
+    const claims = await verifyProviderToken(tokens.accessToken);
+    if (claims.sub !== p.sub) return null;
+    return { accountId: p.accountId, aal: claims.aal };
   } catch {
     return null;
   }
