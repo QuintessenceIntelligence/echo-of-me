@@ -14,7 +14,7 @@
 
 ## Part A: database (Supabase project "Echo of Me", eu-west-1)
 1. **F** Switch Claude's Supabase connector to the Echo of Me organisation (handoff §0.3), then send any message so the tools load.
-2. **C** Apply migrations `0006`–`0014` and seed `0002_prompts_v0.1.sql`, in order; check the security advisor; run the two-family isolation test and the account-closure test inside a rolled-back transaction; confirm the SECURITY DEFINER helpers behave as they do locally.
+2. **C** Apply migrations `0006`–`0015` and seed `0002_prompts_v0.1.sql`, in order; check the security advisor; run the two-family isolation test and the account-closure test inside a rolled-back transaction; confirm the SECURITY DEFINER helpers behave as they do locally.
 3. **F** Set the runtime login password: in the SQL editor run `alter role echo_app_login with password '<a long random password from your password manager>';` and keep that password only in your password manager and in Vercel (step 11).
 
 ## Part B: sign-in settings (Supabase dashboard → Authentication) — ADR-015
