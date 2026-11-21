@@ -3,8 +3,10 @@
 | Field | Value |
 |---|---|
 | Purpose | Continuity handoff between Claude chats in the Echo of Me Project |
-| Last updated | **19 November 2026, ~05:30 SAST (end of session 4, founder away overnight, working autonomously)** |
-| Read this first | Then `canonical/00_README_v1.4.md` (index) → `canonical/registers/R2_Decision_Register_v1.5.md` → `canonical/02_Product_Requirements_Document_v1.0.md` (what is built vs AC) → `canonical/Hosted_Preview_Runbook_v1.0.md` (next founder steps) → `canonical/06_MVP_Build_and_Execution_Plan_v1.0.md` (costs, PROPOSED) → `canonical/05_Security_Privacy_and_Digital_Legacy_Governance_v0.1.md` §13 (go/no-go) |
+| Last updated | **21 November 2026 (Claude Code session: new Supabase project set up)** |
+| Read this first | Then `canonical/00_README_v1.5.md` (index) → `canonical/registers/R2_Decision_Register_v1.6.md` → `canonical/02_Product_Requirements_Document_v1.0.md` (what is built vs AC) → `canonical/Hosted_Preview_Runbook_v1.0.md` (next founder steps) → `canonical/06_MVP_Build_and_Execution_Plan_v1.0.md` (costs, PROPOSED) → `canonical/05_Security_Privacy_and_Digital_Legacy_Governance_v0.1.md` §13 (go/no-go) |
+
+> **21 Nov 2026 (later): new Supabase project ready.** Founder confirmed and approved DR-059: Echo of Me now uses project **`mwoibsvkbtlwkblsryfm`** ("Echo of Me", eu-west-1, Free plan) in **"Minesh Parbhoo's Personal Organisation"** (account `mineshparbhoo`, MFA on), reached only through the custom connector **"Supabase Custom | Minesh Parbhoo Organisations"**. Local tests re-run 151/151. **Migrations 0001–0015 and seeds 0001–0002 are applied**; isolation, sharing, consent withdrawal and account closure verified on the live database (rolled back, synthetic only); advisor: 1 intended INFO. **Next:** runbook steps 3 onward (founder sets the `echo_app_login` password, Auth settings, private storage bucket and keys, Vercel preview). Old project `cvyoicwcsbxmhjuslixv` to be deleted by the founder once the preview works (ask first).
 
 > **21 Nov 2026: moved to Claude Code.** The repo is now the primary source of truth: canonical docs mirrored to `docs/canonical/`, Project images to `docs/archive/project-files/`, working rules in `CLAUDE.md`, transfer in `docs/canonical/Session_Transfer_2026-11-21.md`; `main` `3f3d537`. The founder has a **new Supabase account and custom connector** (PROPOSED to replace DR-058's project `cvyoicwcsbxmhjuslixv`; not yet confirmed or used). Waiting on the founder: which Supabase organisation/project, its region, and whether the connector is linked to it.
 
@@ -23,22 +25,23 @@
 - Migrations (0008–0012 added 18–19 Nov: answer rules, retrieval precision, sharing & recipient access, guided prompts, pilot metrics; seed 0002 prompts; full list in `canonical/03_Technical_Architecture_and_Engineering_v1.0.md` §3): 0001 foundation · 0002 `echo_app_login` · 0003 Supabase API lockdown · 0004 verification role · 0005 pinned search paths · **0006 memory capture & provenance** (items + append-only versions, immutable media with SHA-256, transcripts P6→P3, tags, intended audience, **`citable_source` view = the only retrieval boundary**) · **0007 grounded retrieval** (`app.search_citable`, `app.adjacent_memories`, `rehearsal_turn`).
 - Local setup (workspace does not persist; reclone): Postgres 16 `initdb` as user postgres, port 5433, socket /tmp; `npm ci`; `npm test`. App: `DATABASE_URL=… AUTH_MODE=dev SESSION_SECRET=… STORAGE_DIR=/tmp/blobs npx next start`. Browser tests: `python3 tests/e2e/walkthrough*.py` (7 scripts; Chrome flags for a fake microphone are in the scripts).
 
-### 0.2 Supabase (dev database)
+### 0.2 Supabase (dev database) — updated 21 Nov 2026 (DR-059)
 | Item | Value |
 |---|---|
-| Account | **echo-of-me@quintessenceintelligence.com** (dedicated, company-owned; MFA on) — DR-058 |
-| Organisation | "Echo of Me" (`vsrrsmolkzhngwjtnfbd`), **Free plan** |
-| Project | "Echo of Me", ref **`cvyoicwcsbxmhjuslixv`**, region **eu-west-1 (Ireland)**, Postgres 17 |
-| Team | Owner: echo-of-me@…; Developer: minesh@quintessenceintelligence.com |
-| Applied | 0001–0005 + consent seed (recorded in `public.schema_migrations`). **0006–0015 and seed 0002 pending.** Verify on Supabase that SECURITY DEFINER helpers (0010) bypass RLS as owner. |
-| Verified on live DB | Public roles have no privileges; all tables FORCE RLS; two-family isolation test (rolled back); advisor clean. |
-| Not yet done | `echo_app_login` has no password. Supabase Auth not configured. No Storage bucket. |
+| Account | **mineshparbhoo** (founder's personal Supabase account, MFA on, Free plan, no card) — DR-059 |
+| Organisation | "Minesh Parbhoo's Personal Organisation" (only project: Echo of Me) |
+| Project | "Echo of Me", ref **`mwoibsvkbtlwkblsryfm`**, region **eu-west-1 (Ireland)**, PostgreSQL 17, URL `https://mwoibsvkbtlwkblsryfm.supabase.co` |
+| Claude's access | Custom connector "Supabase Custom \| Minesh Parbhoo Organisations" (tools `mcp__Supabase_Custom_Minesh_Parbhoo_Organisations__*`). **Never use the other "Supabase" connector** (it reaches the founder's other projects, incl. Founders at Work). |
+| Applied | 0001–0015 + seeds 0001 (consent texts) and 0002 (35 prompts), 21 Nov, recorded in `public.schema_migrations` (17 rows) and Supabase's own migration list. |
+| Verified on live DB | 25 tables FORCE RLS; API roles have 0 grants; two-family isolation, recipient access, consent withdrawal and account closure (rolled back); SECURITY DEFINER helpers work (owner `postgres` has BYPASSRLS); advisor: 1 INFO (`rate_limit` has no policies, by design). |
+| Not yet done | `echo_app_login` has no password (runbook step 3, founder). Supabase Auth not configured. No Storage bucket. |
 | Free-plan notes | Pauses after ~7 days without activity; no backups; synthetic data only (DR-053). |
+| Old project | `cvyoicwcsbxmhjuslixv` on echo-of-me@quintessenceintelligence.com (DR-058, 0001–0005 only). Founder deletes it after the new one works; Claude asks first and cannot reach it. |
 
-### 0.3 IMPORTANT: Claude's Supabase connector is single-organisation
-- Currently authorised for **"Quintessence Intelligence"** (founder's usual GitHub login; holds "Founders at Work", ref `llpvxrnjcvwrczauchep`). **Do not switch without asking the founder** (founder instruction, 17 Nov).
-- **To work on Echo of Me's database:** claude.ai → Plugins → Supabase → ⋯ → Disconnect → Connect; sign in as **echo-of-me@…** (email + password + code, not GitHub; Developer role is refused); choose org "Echo of Me" → Authorize; then a new user message so the session loads the tools.
-- **Switch back afterwards:** same steps with "Continue with GitHub", choose "Quintessence Intelligence". Founders at Work chats lose Supabase while it points at Echo of Me.
+### 0.3 Supabase connectors (updated 21 Nov 2026)
+- Use only the custom connector for Echo of Me (§0.2). No connector switching is needed any more.
+- The older "Supabase" connector is authorised for "Quintessence Intelligence" (holds "Founders at Work", ref `llpvxrnjcvwrczauchep`). **Never use it for Echo of Me and never change Founders at Work.**
+- Historical (17–19 Nov): the switching procedure for the old project is in Git history of this file.
 
 ### 0.4 Vercel
 Team "Quintessence" (`team_KRTZflsLocHZWztB8hoClXZz`), Hobby, MFA verified. DR-056: non-commercial only; preview deployments only until "All Deployments" protection is verified; real sign-in required (dev sign-in and local media storage are both refused automatically when hosted). Nothing deployed.
@@ -50,7 +53,7 @@ DR-052 gates CONFIRMED FOR MVP · DR-053 test environment + conditions · DR-054
 1. **Built and verified locally:** MVP modules 01–06 (slices 1–6, deletion and export, guided prompts, pilot measures), CSP, rate limits (ADR-012), account rights (ADR-013), chunked uploads (ADR-016).
 2. **Built, verified only against stand-ins:** S3 media storage (ADR-014, emulator) and Supabase Auth sign-in with TOTP, password reset and new-phone replacement (ADR-015, stand-in provider).
 3. **Documents:** all six build documents exist (02, 03 v1.2, 04, 05 v0.1 draft, 06 PROPOSED, 07) plus the hosted preview runbook.
-4. **Next (needs the founder, ~30–40 min): hosted preview** — follow `canonical/Hosted_Preview_Runbook_v1.0.md` (connector switch → migrations 0006–0015 + seed 0002 → runtime password → Auth settings → private bucket + storage keys → Vercel preview → checks). Claude then fixes any real-API differences in `supabase-auth.ts` / `storage.ts` only.
+4. **Next (needs the founder, ~30–40 min): hosted preview** — follow `canonical/Hosted_Preview_Runbook_v1.0.md` (~~connector switch → migrations~~ done 21 Nov → runtime password → Auth settings → private bucket + storage keys → Vercel preview → checks). Claude then fixes any real-API differences in `supabase-auth.ts` / `storage.ts` only.
 5. **Then:** pilot readiness per doc 06 §4 phase B and doc 05 §13 (currently **no-go** for real data).
 
 ### 0.7 Founder preferences

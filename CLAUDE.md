@@ -6,8 +6,8 @@ This file is read at the start of every Claude Code session in this repository. 
 
 ## 1. Read first, every session
 1. `docs/canonical/Echo_of_Me_Chat_Handoff_Current_State.md` — where things are, what is next.
-2. `docs/canonical/00_README_v1.4.md` — index of all documents.
-3. `docs/canonical/registers/R2_Decision_Register_v1.5.md` — what the founder has decided.
+2. `docs/canonical/00_README_v1.5.md` — index of all documents.
+3. `docs/canonical/registers/R2_Decision_Register_v1.6.md` — what the founder has decided.
 4. For build detail: `docs/02_…` (PRD) to `docs/07_…`, `docs/adr/`, `tests/results/`.
 
 Use the highest version number of any document. Don't repeat the 2026 source reconciliation; it is done (R1–R9).
@@ -44,7 +44,7 @@ Carry on with safe, reversible work without asking. **Stop and ask** before anyt
 - turns on a sensitive function: child profiling, posthumous release, synthetic voice;
 - changes a CONFIRMED decision or the product boundary.
 
-**Supabase connectors:** don't switch, reconnect or point a Supabase connector at a different organisation or project without asking first. Read-only checks (list tables, advisors) are fine once the founder says which project is Echo of Me's. Don't change anything belonging to "Founders at Work".
+**Supabase connectors:** Echo of Me's project is `mwoibsvkbtlwkblsryfm` (DR-059); use only the custom connector "Supabase Custom | Minesh Parbhoo Organisations". Never use the other "Supabase" connector for Echo of Me, and don't switch, reconnect or repoint any connector without asking first. Don't change anything belonging to "Founders at Work". Deleting the old project `cvyoicwcsbxmhjuslixv` is the founder's job, after confirmation.
 
 ## 7. Files and versions
 - Versioned documents use dotted numbers in the file name: `Name_v1.1.md` (never `_v1_1`). A change makes a new version file; the old one stays.
@@ -56,7 +56,7 @@ Carry on with safe, reversible work without asking. **Stop and ask** before anyt
 - `npm ci` · `npm run typecheck` · `TEST_PG_URL=postgresql://postgres@localhost/postgres?host=/tmp&port=5433 npm test` (adjust the URL to your Postgres; each test file gets a fresh database).
 - App in dev mode: `DATABASE_URL=… AUTH_MODE=dev SESSION_SECRET=<32+ chars> STORAGE_DIR=/tmp/blobs npm run dev` (dev sign-in uses a **simulated** second factor).
 - Browser walkthroughs: start the app on port 3000, then `python3 tests/e2e/walkthrough*.py`. `walkthrough_supabase.py` starts its own stand-in identity provider on port 3001.
-- Last verified: 151/151 tests; 11 walkthroughs 131/131 steps; 0 axe violations (`main` `a365adf`, 19 Nov 2026).
+- Last verified: 151/151 tests (re-run 21 Nov 2026); 11 walkthroughs 131/131 steps; 0 axe violations (`main` `a365adf`, 19 Nov 2026). The 6 S3 tests need `pip install "moto[server]"` (on Debian images add `--ignore-installed blinker`); without it they are skipped, not failed.
 
 ## 9. Current position (21 Nov 2026)
-All six build documents exist; MVP slices 1–6 are built and tested locally. What remains needs the founder: the hosted private preview (`docs/operations/Hosted_Preview_Runbook_v1.0.md`), the Supabase project to use (a new Supabase account and custom connector were introduced on 21 Nov; the earlier project `cvyoicwcsbxmhjuslixv` has migrations 0001–0005 only), the AI provider (ADR-007), an email vendor, legal and clinical reviews, editorial review of prompts and consent texts, and pilot approvals.
+All six build documents exist; MVP slices 1–6 are built and tested locally. The new Supabase project `mwoibsvkbtlwkblsryfm` (founder's personal account, eu-west-1, Free plan; DR-059) has migrations 0001–0015 and both seeds, verified on the live database. Next: hosted preview runbook (`docs/operations/Hosted_Preview_Runbook_v1.0.md`) from step 3 (runtime password, Auth settings, storage bucket and keys, Vercel preview). Still needing the founder: the AI provider (ADR-007), an email vendor, legal and clinical reviews, editorial review of prompts and consent texts, pilot approvals, and later deleting the old project `cvyoicwcsbxmhjuslixv`.
