@@ -4,7 +4,7 @@
 
 **Status: pre-release.** MVP modules 01–06 are built and tested locally on synthetic data. Real sign-in (Supabase Auth with an authenticator-app second step) and hosted media storage are built and tested against local stand-ins, **not yet against the real Supabase project**. Nothing is deployed. Do not store real personal material (doc 05 §13: go/no-go is currently **no-go**).
 
-Product source of truth: the `canonical/` documents in the Echo of Me Claude Project (handoff first, then 00 README, R2 decisions, 01D MVP boundary). Architecture: `docs/03_Technical_Architecture_and_Engineering_v1.1.md` and `docs/adr/`. Security, privacy and governance: `docs/05_…_v0.1.md`. Hosted preview: `docs/operations/Hosted_Preview_Runbook_v1.0.md`. Latest test evidence: `tests/results/`.
+Product source of truth: `docs/canonical/` in this repository (mirrored from the Echo of Me Claude Project on 21 Nov 2026; handoff first, then 00 README, R2 decisions, 01D MVP boundary). Working rules for Claude Code: `CLAUDE.md`. Architecture: `docs/03_Technical_Architecture_and_Engineering_v1.2.md` and `docs/adr/`. Security, privacy and governance: `docs/05_…_v0.1.md`. Hosted preview: `docs/operations/Hosted_Preview_Runbook_v1.0.md`. Latest test evidence: `tests/results/`.
 
 ## What is built
 | Area | Status |
